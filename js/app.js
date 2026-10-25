@@ -57,6 +57,18 @@ const oname = o => o.name.replace(/^ОПЦИЯ:\s*/,'');
 // Посты VK открываем внутри магазина кнопкой «Смотреть»; остальные ссылки — через openLink
 const WALL_RE=/https?:\/\/(?:m\.)?vk\.com\/wall-73004917_(\d+)/;
 function postBtn(id,label){ return `<a class="btn seebtn" href="#" data-post="${id}">${label||'Смотреть'}</a>`; }
+// Если у товара/опции есть «Послушать звучание», ссылки на её же пост в описании заменяем отсылкой к этой кнопке
+function descOf(e){
+  let t=e.desc||'';
+  if(e.posts&&e.posts.length){
+    const ids=e.posts.map(p=>(p.post||'').match(WALL_RE)).filter(Boolean).map(m=>m[1]);
+    ids.forEach(id=>{ const u=`https?://(?:m\\.)?vk\\.com/wall-73004917_${id}`;
+      t=t.replace(new RegExp(`по ссылке\\s*${u}`,'g'),'в кнопке «Послушать звучание» выше')
+         .replace(new RegExp(`\\[[^\\]]+\\]\\(${u}\\)`,'g'),'в кнопке «Послушать звучание» выше')
+         .replace(new RegExp(u,'g'),'в кнопке «Послушать звучание» выше'); });
+  }
+  return richText(t);
+}
 function richText(t){
   let h=esc(t);
   h=h.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,(m,txt,u)=>{const w=u.match(WALL_RE); return w?postBtn(w[1]):`<a href="${u}" data-href="${u}">${txt}</a>`;});
@@ -110,7 +122,7 @@ function option(id){
   $app.innerHTML=`<div class="p">${gallery(o.imgs)}
   <h2>${esc(o.name)}</h2><div class="price" style="font-size:22px">${rub(o.price)}</div>
   <p class="hint">Опция добавляется к варгану: отметьте её на странице варгана или в корзине.</p>
-  ${listenBtn('o',o)}${albumBtns('o',id)}${buyVK(o.vk)}${supportBtn(o.name)}<div class="desc">${richText(o.desc)}</div>${backLink()}</div>`;
+  ${listenBtn('o',o)}${albumBtns('o',id)}${buyVK(o.vk)}${supportBtn(o.name)}<div class="desc">${descOf(o)}</div>${backLink()}</div>`;
   bindBack(); bindAlbBtns(); const lb=document.getElementById('listen'); if(lb) lb.onclick=()=>go(()=>listen('o',id)); setMain('Выбрать варган', catalog);
 }
 function product(id){
@@ -119,7 +131,7 @@ function product(id){
   <h2>${esc(p.name)}</h2><div class="price" style="font-size:22px">${rub(p.price)}</div>
   ${listenBtn('p',p)}${albumBtns('p',id)}${buyVK(p.vk)}${supportBtn(p.name)}
   <h3>Опции</h3><p class="hint" style="margin:0 0 8px">Выберите дополнения к заказу, если нужны: они добавятся к цене варгана.</p>${OPTIONS.map(o=>`<label class="pm"><input type="checkbox" value="${o.id}" style="width:auto"> ${esc(oname(o))} <b>+${rub(o.price)}</b></label>${optExamples(o.id)}`).join('')}
-  <h3>Описание</h3><div class="desc">${richText(p.desc)}</div>${backLink()}</div>`;
+  <h3>Описание</h3><div class="desc">${descOf(p)}</div>${backLink()}</div>`;
   bindBack(); bindAlbBtns(); const lb=document.getElementById('listen'); if(lb) lb.onclick=()=>go(()=>listen('p',id));
   const total=()=>p.price+[...sel].reduce((s,o)=>s+optById(o).price,0);
   const upd=()=>setMain(`В корзину · ${rub(total())}`, ()=>{add(id,[...sel]); setMain('В корзине ✓ · перейти', ()=>go(cart));});
