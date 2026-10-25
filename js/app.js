@@ -40,7 +40,7 @@ function catalog(){
   const showP = !isVK&&state.cat!=='Опции', showO = !isVK&&state.cat!=='Варганы';
   const list=showP?PRODUCTS.filter(p=>p.name.toLowerCase().includes(q)):[];
   const olist=showO?OPTIONS.filter(o=>o.name.toLowerCase().includes(q)):[];
-  $app.innerHTML=`<a class="vkbanner" href="${VK_SHOP}" data-href="${VK_SHOP}">🛍 Купить в VK-магазине — vk.com/market-73004917 ›</a><input class="search" id="q" placeholder="Поиск" value="${esc(state.q)}">
+  $app.innerHTML=`<a class="vkbanner" href="${VK_SHOP}" data-href="${VK_SHOP}">🛍 Купить в VK-магазине — vk.com/market-73004917 ›</a><a class="vkbanner tgbanner" href="${CHANNEL}" data-href="${CHANNEL}">📣 Наш Telegram-канал — новости и звучание ›</a><input class="search" id="q" placeholder="Поиск" value="${esc(state.q)}">
   <div class="chips">${cats.map(c=>`<button class="chip ${c===state.cat?'on':''}" data-c="${c}">${c}</button>`).join('')}</div>
   <div class="grid">${list.map(p=>`<div class="item" data-id="${p.id}"><img src="${p.imgs[0]}" alt="" loading="lazy"><div class="t">${esc(p.name)}<div class="price">${rub(p.price)}</div></div></div>`).join('')}</div>
   ${olist.length?`<h3 class="p" style="padding-bottom:0">Опции к варгану</h3><div class="grid">${olist.map(o=>`<div class="item opt" data-o="${o.id}"><img src="${o.imgs[0]}" alt="" loading="lazy"><div class="t">${esc(oname(o))}<div class="price">+${rub(o.price)}</div><div class="tag">добавляется к варгану</div></div></div>`).join('')}</div>`:''}
@@ -92,6 +92,8 @@ function listen(kind,id){
 }
 const listenBtn = (kind,e) => e.posts&&e.posts.length?`<button class="btn" id="listen">🎧 Послушать звучание</button>`:'';
 const VK_SHOP='https://vk.com/market-73004917';
+const MASTER='https://t.me/vasilykovatsenko', CHANNEL='https://t.me/homuskovatsenko';
+const supportBtn = name => { const u=`${MASTER}?text=${encodeURIComponent('Здравствуйте! Вопрос по товару: '+name)}`; return `<a class="btn sec" href="${u}" data-href="${u}">💬 Написать в поддержку</a>`; };
 const buyVK = u => `<a class="btn sec" href="${u}" data-href="${u}">Купить в VK</a>`;
 // VK-плеер — только запасной вариант для видео, которые не удалось скачать
 function bindVideos(){ $app.querySelectorAll('.vplay').forEach(b=>b.onclick=()=>{
@@ -107,14 +109,14 @@ function option(id){
   $app.innerHTML=`<div class="p">${gallery(o.imgs)}
   <h2>${esc(o.name)}</h2><div class="price" style="font-size:22px">${rub(o.price)}</div>
   <p class="hint">Опция добавляется к варгану: отметьте её на странице варгана или в корзине.</p>
-  ${listenBtn('o',o)}${buyVK(o.vk)}<div class="desc">${richText(o.desc)}</div>${backLink()}</div>`;
+  ${listenBtn('o',o)}${buyVK(o.vk)}${supportBtn(o.name)}<div class="desc">${richText(o.desc)}</div>${backLink()}</div>`;
   bindBack(); const lb=document.getElementById('listen'); if(lb) lb.onclick=()=>go(()=>listen('o',id)); setMain('Выбрать варган', catalog);
 }
 function product(id){
   const p=PRODUCTS.find(x=>x.id===id); const sel=new Set();
   $app.innerHTML=`<div class="p">${gallery(p.imgs)}
   <h2>${esc(p.name)}</h2><div class="price" style="font-size:22px">${rub(p.price)}</div>
-  ${listenBtn('p',p)}${buyVK(p.vk)}
+  ${listenBtn('p',p)}${buyVK(p.vk)}${supportBtn(p.name)}
   <h3>Опции</h3>${OPTIONS.map(o=>`<label class="pm"><input type="checkbox" value="${o.id}" style="width:auto"> ${esc(oname(o))} <b>+${rub(o.price)}</b></label>`).join('')}
   <h3>Описание</h3><div class="desc">${richText(p.desc)}</div>${backLink()}</div>`;
   bindBack(); const lb=document.getElementById('listen'); if(lb) lb.onclick=()=>go(()=>listen('p',id));
@@ -132,6 +134,8 @@ function info(){
   <p>📞 <a href="tel:${c.phone.replace(/[^+\d]/g,'')}">${c.phone}</a></p>
   <p>🌐 <a href="${c.site}" data-href="${c.site}">shkolavargana.ru</a></p>
   <p>🛍 <a href="${VK_SHOP}" data-href="${VK_SHOP}">Купить в VK — магазин сообщества</a></p>
+  <p>📣 <a href="${CHANNEL}" data-href="${CHANNEL}">Telegram-канал — t.me/homuskovatsenko</a></p>
+  <p>✉️ <a href="${MASTER}" data-href="${MASTER}">Написать мастеру — @vasilykovatsenko</a></p>
   <p>💬 <a href="${c.vk}" data-href="${c.vk}">Сообщество VK — vk.com/vargan64</a></p>${backLink()}</div>`;
   bindBack(); setMain('Перейти в каталог', catalog);
 }
