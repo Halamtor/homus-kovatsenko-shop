@@ -3,7 +3,7 @@ const tg = window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.i
 const inTG = !!(tg && tg.platform && tg.platform !== 'unknown');
 if (tg) { try { tg.ready(); tg.expand(); } catch (e) {} }
 
-const state = {cat:'Все', q:'', cart:{}, stack:[]};
+const state = {cat:'Варганы', q:'', cart:{}, stack:[]};
 const $app = document.getElementById('app');
 const fb = document.getElementById('fallbackMain');
 let mainHandler = null;
@@ -34,7 +34,7 @@ function add(pid,opts){ const k=pid+'|'+opts.slice().sort().join(','); state.car
 // ---- Экраны ----
 function catalog(){
   state.stack=[catalog]; if(inTG) tg.BackButton.hide();
-  const cats=['Все','Варганы','Опции','Магазин в VK'];
+  const cats=['Варганы','Опции','Магазин в VK'];
   const isVK=state.cat==='Магазин в VK';
   const q=state.q.toLowerCase();
   const showP = !isVK&&state.cat!=='Опции', showO = !isVK&&state.cat!=='Варганы';
