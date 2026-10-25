@@ -39,7 +39,7 @@ function catalog(){
   const showP = state.cat!=='Опции', showO = state.cat!=='Варганы';
   const list=showP?PRODUCTS.filter(p=>p.name.toLowerCase().includes(q)):[];
   const olist=showO?OPTIONS.filter(o=>o.name.toLowerCase().includes(q)):[];
-  $app.innerHTML=`<input class="search" id="q" placeholder="Поиск" value="${esc(state.q)}">
+  $app.innerHTML=`<a class="vkbanner" href="${VK_SHOP}" data-href="${VK_SHOP}">🛍 Купить в VK-магазине — vk.com/market-73004917 ›</a><input class="search" id="q" placeholder="Поиск" value="${esc(state.q)}">
   <div class="chips">${cats.map(c=>`<button class="chip ${c===state.cat?'on':''}" data-c="${c}">${c}</button>`).join('')}</div>
   <div class="grid">${list.map(p=>`<div class="item" data-id="${p.id}"><img src="${p.imgs[0]}" alt="" loading="lazy"><div class="t">${esc(p.name)}<div class="price">${rub(p.price)}</div></div></div>`).join('')}</div>
   ${olist.length?`<h3 class="p" style="padding-bottom:0">Опции к варгану</h3><div class="grid">${olist.map(o=>`<div class="item opt" data-o="${o.id}"><img src="${o.imgs[0]}" alt="" loading="lazy"><div class="t">${esc(oname(o))}<div class="price">+${rub(o.price)}</div><div class="tag">добавляется к варгану</div></div></div>`).join('')}</div>`:''}
@@ -65,32 +65,46 @@ function gallery(imgs){ return `<div class="gallery">${imgs.map(s=>`<img src="${
 function videoBlock(posts){
   if(!posts||!posts.length) return '';
   return `<h3>Видео и звучание</h3>`+posts.map(p=>`<div class="post">
-    <div class="hint">${p.related?'Связанный пост сообщества':'Пост из описания'}: <a href="${p.post}" data-href="${p.post}">${p.post.replace('https://','')}</a></div>
-    ${p.videos.length?`<div class="vids">${p.videos.map((v,i)=>`<div class="vid"><button class="vplay" data-oid="${v.oid}" data-vid="${v.id}">▶ Видео ${i+1}${v.dur?' · '+v.dur:''}</button>
-      <a class="vlink" href="${v.url}" data-href="${v.url}">открыть в VK</a></div>`).join('')}</div>`:`<a class="btn sec" href="${p.post}" data-href="${p.post}">Открыть пост в VK</a>`}</div>`).join('');
+    <div class="hint">${p.related?'Связанный пост сообщества':'Пост из описания'}</div>
+    ${p.text?`<details open><summary>Текст поста VK</summary><div class="desc">${richText(p.text)}</div></details>`:''}
+    ${p.videos.length?`<div class="vids">${p.videos.map((v,i)=>v.file?`<div class="vid"><video controls playsinline preload="none" poster="${v.file.replace('.mp4','.jpg')}" src="${v.file}"></video><div class="hint">Видео ${i+1}${v.dur?' · '+v.dur:''}</div></div>`
+      :`<div class="vid"><button class="vplay" data-oid="${v.oid}" data-vid="${v.id}">▶ Видео ${i+1}${v.dur?' · '+v.dur:''} (плеер VK)</button>
+      <a class="vlink" href="${v.url}" data-href="${v.url}">открыть в VK</a></div>`).join('')}</div>`:''}</div>`).join('');
 }
+// «Послушать звучание» — отдельный экран внутри магазина: локальные видео + дословные тексты постов VK
+function listen(kind,id){
+  const e=kind==='o'?optById(id):PRODUCTS.find(x=>x.id===id);
+  $app.innerHTML=`<div class="p"><h2>Послушать звучание</h2><div class="hint">${esc(e.name)}</div>${videoBlock(e.posts)}${backLink()}</div>`;
+  bindBack(); bindVideos(); setMain(kind==='o'?'Назад к опции':'Назад к товару', onBack);
+}
+const listenBtn = (kind,e) => e.posts&&e.posts.length?`<button class="btn" id="listen">🎧 Послушать звучание</button>`:'';
+const VK_SHOP='https://vk.com/market-73004917';
+const buyVK = u => `<a class="btn sec" href="${u}" data-href="${u}">Купить в VK</a>`;
+// VK-плеер — только запасной вариант для видео, которые не удалось скачать
 function bindVideos(){ $app.querySelectorAll('.vplay').forEach(b=>b.onclick=()=>{
   const f=document.createElement('iframe'); f.className='vframe';
   f.src=`https://vk.com/video_ext.php?oid=${b.dataset.oid}&id=${b.dataset.vid}&hd=2`;
-  f.allow='autoplay; encrypted-media; fullscreen; picture-in-picture'; f.setAttribute('allowfullscreen',''); f.loading='lazy';
-  b.parentElement.insertBefore(f,b); b.remove(); }); }
+  f.allow='autoplay; encrypted-media; fullscreen; picture-in-picture'; f.setAttribute('allowfullscreen','');
+  b.parentElement.insertBefore(f,b); b.remove(); });
+  // одновременно играет только одно видео
+  $app.querySelectorAll('video').forEach(v=>v.addEventListener('play',()=>$app.querySelectorAll('video').forEach(o=>o!==v&&o.pause())));
+}
 function option(id){
   const o=optById(id);
   $app.innerHTML=`<div class="p">${gallery(o.imgs)}
   <h2>${esc(o.name)}</h2><div class="price" style="font-size:22px">${rub(o.price)}</div>
   <p class="hint">Опция добавляется к варгану: отметьте её на странице варгана или в корзине.</p>
-  <div class="desc">${richText(o.desc)}</div>${videoBlock(o.posts)}
-  <p><a href="${o.vk}" data-href="${o.vk}">Карточка в VK</a></p>${backLink()}</div>`;
-  bindBack(); bindVideos(); setMain('Выбрать варган', catalog);
+  ${listenBtn('o',o)}${buyVK(o.vk)}<div class="desc">${richText(o.desc)}</div>${backLink()}</div>`;
+  bindBack(); const lb=document.getElementById('listen'); if(lb) lb.onclick=()=>go(()=>listen('o',id)); setMain('Выбрать варган', catalog);
 }
 function product(id){
   const p=PRODUCTS.find(x=>x.id===id); const sel=new Set();
   $app.innerHTML=`<div class="p">${gallery(p.imgs)}
   <h2>${esc(p.name)}</h2><div class="price" style="font-size:22px">${rub(p.price)}</div>
+  ${listenBtn('p',p)}${buyVK(p.vk)}
   <h3>Опции</h3>${OPTIONS.map(o=>`<label class="pm"><input type="checkbox" value="${o.id}" style="width:auto"> ${esc(oname(o))} <b>+${rub(o.price)}</b></label>`).join('')}
-  <h3>Описание</h3><div class="desc">${richText(p.desc)}</div>${videoBlock(p.posts)}
-  <p><a href="${p.vk}" data-href="${p.vk}">Карточка в VK</a></p>${backLink()}</div>`;
-  bindBack(); bindVideos();
+  <h3>Описание</h3><div class="desc">${richText(p.desc)}</div>${backLink()}</div>`;
+  bindBack(); const lb=document.getElementById('listen'); if(lb) lb.onclick=()=>go(()=>listen('p',id));
   const total=()=>p.price+[...sel].reduce((s,o)=>s+optById(o).price,0);
   const upd=()=>setMain(`В корзину · ${rub(total())}`, ()=>{add(id,[...sel]); setMain('В корзине ✓ · перейти', ()=>go(cart));});
   $app.querySelectorAll('input[type=checkbox]').forEach(c=>c.onchange=()=>{c.checked?sel.add(c.value):sel.delete(c.value); upd();});
@@ -104,6 +118,7 @@ function info(){
   <div class="p"><div class="desc">${esc(c.about)}</div>
   <p>📞 <a href="tel:${c.phone.replace(/[^+\d]/g,'')}">${c.phone}</a></p>
   <p>🌐 <a href="${c.site}" data-href="${c.site}">shkolavargana.ru</a></p>
+  <p>🛍 <a href="${VK_SHOP}" data-href="${VK_SHOP}">Купить в VK — магазин сообщества</a></p>
   <p>💬 <a href="${c.vk}" data-href="${c.vk}">Сообщество VK — vk.com/vargan64</a></p>${backLink()}</div>`;
   bindBack(); setMain('Перейти в каталог', catalog);
 }
