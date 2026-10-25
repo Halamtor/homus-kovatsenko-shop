@@ -186,15 +186,15 @@ function info(){
   <p>📣 <a href="${CHANNEL}" data-href="${CHANNEL}">Telegram-канал — t.me/homuskovatsenko</a></p>
   <p>✉️ <a href="${MASTER}" data-href="${MASTER}">Написать мастеру — @vasilykovatsenko</a></p>
   <p>💬 <a href="${c.vk}" data-href="${c.vk}">Сообщество VK — vk.com/vargan64</a></p>
-  <p class="hint">Доставку и стоимость согласуем при заказе.</p>${backLink()}</div>`;
+  <p class="hint">Перед оформлением уточните доставку у мастера.</p>${backLink()}</div>`;
   bindBack(); bindAlbBtns(); setMain('Перейти в каталог', catalog);
 }
 function cart(){
   const items=Object.entries(state.cart);
-  const delBlock=items.length?`<label>Доставка, ₽ (по ответу мастера)<input id="delivery" type="number" min="0" step="50" inputmode="numeric" placeholder="сумма доставки" value="${state.delivery||''}"></label>
-  <p class="hint">Уточните доставку у мастера и впишите сумму — она войдёт в итог к оплате.</p>
+  const delBlock=items.length?`<p class="hint">Перед оформлением уточните доставку у мастера.</p>
+  <label>Стоимость доставки, ₽<input id="delivery" type="number" min="0" step="50" inputmode="numeric" placeholder="сумма доставки" value="${state.delivery||''}"></label>
   <p>Товары: <b>${rub(cartTotal())}</b>${state.delivery?` · Доставка: <b>${rub(state.delivery)}</b>`:''}<br>Итого: <b>${rub(orderTotal())}</b></p>`:`<p class="hint">Корзина пуста</p>`;
-  $app.innerHTML=`<div class="p"><h2>Корзина</h2><p class="hint">Доставку и стоимость согласуем при заказе.</p>${items.length?items.map(([k,l])=>{const p=PRODUCTS.find(x=>x.id===l.pid);return `<div class="row"><img src="${p.imgs[0]}"><div style="flex:1">${esc(p.name)}
+  $app.innerHTML=`<div class="p"><h2>Корзина</h2>${items.length?items.map(([k,l])=>{const p=PRODUCTS.find(x=>x.id===l.pid);return `<div class="row"><img src="${p.imgs[0]}"><div style="flex:1">${esc(p.name)}
    ${OPTIONS.map(o=>`<label class="hint" style="display:block"><input type="checkbox" class="co" data-k="${k}" value="${o.id}" ${l.opts.includes(o.id)?'checked':''} style="width:auto;margin:2px 4px 0 0">${esc(oname(o))} +${rub(o.price)}</label>`).join('')}
    ${p.customPrice?`<label class="hint" style="display:block;margin-top:6px">Сумма варгана, ₽<input class="cprice" data-k="${k}" type="number" min="${p.price}" step="100" inputmode="numeric" value="${l.custom!=null?l.custom:p.price}"></label>`:''}
    <div class="price">${rub(lineUnit(l)*l.q)}</div></div>
@@ -224,13 +224,13 @@ function checkout(){
       state.addr=(document.getElementById('addr')||{}).value||'';
       const v=+(document.getElementById('delivery').value||0);
       state.delivery=v>0?v:0;
-      if(!state.delivery){ alert('Впишите стоимость доставки по ответу мастера (в корзине или здесь)'); return; }
+      if(!state.delivery){ alert('Перед оформлением уточните доставку у мастера и впишите сумму'); return; }
       const m=document.querySelector('input[name=pm]:checked').value; go(()=>pay(m));
     });
   };
   $app.innerHTML=`<div class="p"><h2>Оформление</h2>
   <p>Товары: <b id="sumGoods">${rub(cartTotal())}</b></p>
-  <label>Доставка, ₽<input id="delivery" type="number" min="0" step="50" inputmode="numeric" placeholder="из корзины или по ответу мастера" value="${state.delivery||''}"></label>
+  <label>Доставка, ₽<input id="delivery" type="number" min="0" step="50" inputmode="numeric" placeholder="уточните у мастера" value="${state.delivery||''}"></label>
   <p>Доставка: <b id="sumDel">${state.delivery?rub(state.delivery):'—'}</b><br>Итого к оплате: <b id="sumTot">${rub(orderTotal())}</b></p>
   <label>Имя / контакт<input id="contact" placeholder="@username или телефон" value="${esc(defContact)}"></label>
   <label>Адрес доставки<textarea id="addr" rows="2" placeholder="Страна, город, адрес">${esc(state.addr||'')}</textarea></label>
