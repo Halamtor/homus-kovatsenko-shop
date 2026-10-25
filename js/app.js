@@ -66,7 +66,7 @@ function richText(t){
 function allPosts(){ const m={}; [...PRODUCTS,...OPTIONS].forEach(e=>(e.posts||[]).forEach(p=>{const w=(p.post||'').match(WALL_RE); if(w&&!m[w[1]]) m[w[1]]=p;})); return m; }
 function postScreen(id){
   const p=allPosts()[id];
-  $app.innerHTML=`<div class="p"><h2>Пост</h2>${p?videoBlock([p]):'<p class="hint">Пост недоступен</p>'}${backLink()}</div>`;
+  $app.innerHTML=`<div class="p">${p?videoBlock([p]):'<p class="hint">Пост недоступен</p>'}${backLink()}</div>`;
   bindBack(); bindVideos(); setMain('Назад', onBack);
 }
 document.addEventListener('click',e=>{const a=e.target.closest('[data-post]'); if(a){e.preventDefault(); const id=a.dataset.post;
@@ -77,9 +77,8 @@ function gallery(imgs){ return `<div class="gallery">${imgs.map(s=>`<img src="${
 // Видео: VK-плеер грузится только по нажатию; ссылка-фолбэк всегда есть (VK может быть медленным/заблокированным)
 function videoBlock(posts){
   if(!posts||!posts.length) return '';
-  return `<h3>Видео и звучание</h3>`+posts.map(p=>`<div class="post">
-    <div class="hint">${p.related?'Связанный пост сообщества':'Пост из описания'}</div>
-    ${p.text?`<details open><summary>Текст поста VK</summary><div class="desc">${richText(p.text)}</div></details>`:''}
+  return posts.map(p=>`<div class="post">
+    ${p.text?`<div class="desc">${richText(p.text)}</div>`:''}
     ${p.videos.length?`<div class="vids">${p.videos.map((v,i)=>v.file?`<div class="vid"><video controls playsinline preload="none" poster="${v.file.replace('.mp4','.jpg')}" src="${v.file}"></video><div class="hint">Видео ${i+1}${v.dur?' · '+v.dur:''}</div></div>`
       :`<div class="vid"><button class="vplay" data-oid="${v.oid}" data-vid="${v.id}">▶ Видео ${i+1}${v.dur?' · '+v.dur:''} (плеер VK)</button>
       <a class="vlink" href="${v.url}" data-href="${v.url}">открыть в VK</a></div>`).join('')}</div>`:''}</div>`).join('');
@@ -87,7 +86,7 @@ function videoBlock(posts){
 // «Послушать звучание» — отдельный экран внутри магазина: локальные видео + дословные тексты постов VK
 function listen(kind,id){
   const e=kind==='o'?optById(id):PRODUCTS.find(x=>x.id===id);
-  $app.innerHTML=`<div class="p"><h2>Послушать звучание</h2><div class="hint">${esc(e.name)}</div>${videoBlock(e.posts)}${backLink()}</div>`;
+  $app.innerHTML=`<div class="p"><h2 class="bigtitle">${esc(e.name)}</h2>${videoBlock(e.posts)}${backLink()}</div>`;
   bindBack(); bindVideos(); setMain(kind==='o'?'Назад к опции':'Назад к товару', onBack);
 }
 const listenBtn = (kind,e) => e.posts&&e.posts.length?`<button class="btn" id="listen">🎧 Послушать звучание</button>`:'';
