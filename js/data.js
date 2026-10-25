@@ -413,6 +413,7 @@ const OPTIONS = [
   "imgs": [
    "img/gravirovka-na-chehle-1.jpg",
    "img/gravirovka-na-chehle-2.jpg",
+   "img/gravirovka-na-chehle-4.jpg",
    "img/gravirovka-na-chehle-5.jpg"
   ],
   "vk": "https://vk.com/market/product/optsia-gravirovka-na-chekhle-73004917-3188092",
