@@ -62,17 +62,25 @@ function descOf(e){
   let t=e.desc||'';
   if(e.posts&&e.posts.length){
     const ids=e.posts.map(p=>(p.post||'').match(WALL_RE)).filter(Boolean).map(m=>m[1]);
-    ids.forEach(id=>{ const u=`https?://(?:m\\.)?vk\\.com/wall-73004917_${id}`;
-      t=t.replace(new RegExp(`по ссылке\\s*${u}`,'g'),'в кнопке «Послушать звучание» выше')
-         .replace(new RegExp(`\\[[^\\]]+\\]\\(${u}\\)`,'g'),'в кнопке «Послушать звучание» выше')
-         .replace(new RegExp(u,'g'),'в кнопке «Послушать звучание» выше'); });
+    if(ids.length){
+      const wall=`https?://(?:m\\.)?vk\\.com/(?:vargan64\\?w=)?wall-73004917_(?:${ids.join('|')})(?!\\d)`;
+      // строки «Обзоры / Видео / Примеры / по ссылке» на собственные посты — дубль «Послушать звучание»
+      t=t.replace(new RegExp(`Возможные настройки с примерами звучания\\s+по ссылке\\s*${wall}`,'gi'),'Возможные настройки — в кнопке «Послушать звучание» выше');
+      t=t.replace(new RegExp(`(?:Обзоры|Видео с демонстрацией звучания|Примеры звучания|по ссылке)\\s*:?\\s*${wall}`,'gi'),'');
+      t=t.replace(new RegExp(`\\[[^\\]]+\\]\\(${wall}\\)`,'g'),'');
+      t=t.replace(new RegExp(wall,'g'),'');
+    }
   }
+  t=t.replace(/\s*\(подробнее о вердианской настройке здесь:\s*\)/g,'');
+  t=t.replace(/[ \t]+\n/g,'\n').replace(/\n{3,}/g,'\n\n').trim();
   return richText(t);
 }
 function richText(t,own){
   if(own) t=t.replace(new RegExp('https?://(?:m\\.)?vk\\.com/(?:vargan64\\?w=)?wall-73004917_'+own+'(?!\\d)','g'),'смотрите видео ниже');
   let h=esc(t);
   h=h.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,(m,txt,u)=>{const w=u.match(WALL_RE); return w?postBtn(w[1]):`<a href="${u}" data-href="${u}">${txt}</a>`;});
+  // отзывы в теме VK — кнопка «смотреть в VK», не сырая ссылка
+  h=h.replace(/(^|[^">])(https?:\/\/(?:m\.)?vk\.com\/topic-[^\s<]+)/g,(m,pre,u)=>`${pre}<a class="btn seebtn" href="${u}" data-href="${u}">смотреть в VK</a>`);
   h=h.replace(/(^|[^"=>])(https?:\/\/[^\s<]+[^\s<.,)!?:;])/g,(m,pre,u)=>{const w=u.match(WALL_RE); return w?`${pre}${postBtn(w[1])}`:`${pre}<a href="${u}" data-href="${u}">${u}</a>`;});
   return h;
 }
