@@ -55,7 +55,7 @@ function catalog(){
 const oname = o => o.name.replace(/^ОПЦИЯ:\s*/,'');
 // Дословный текст VK → HTML: экранируем, markdown-ссылки [текст](url) и голые URL делаем кликабельными
 // Посты VK открываем внутри магазина кнопкой «Смотреть»; остальные ссылки — через openLink
-const WALL_RE=/https?:\/\/(?:m\.)?vk\.com\/wall-73004917_(\d+)/;
+const WALL_RE=/https?:\/\/(?:m\.)?vk\.com\/(?:vargan64\?w=)?wall-73004917_(\d+)/;
 function postBtn(id,label){ return `<a class="btn seebtn" href="#" data-post="${id}">${label||'Смотреть'}</a>`; }
 // Если у товара/опции есть «Послушать звучание», ссылки на её же пост в описании заменяем отсылкой к этой кнопке
 function descOf(e){
@@ -69,7 +69,8 @@ function descOf(e){
   }
   return richText(t);
 }
-function richText(t){
+function richText(t,own){
+  if(own) t=t.replace(new RegExp('https?://(?:m\\.)?vk\\.com/(?:vargan64\\?w=)?wall-73004917_'+own+'(?!\\d)','g'),'смотрите видео ниже');
   let h=esc(t);
   h=h.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,(m,txt,u)=>{const w=u.match(WALL_RE); return w?postBtn(w[1]):`<a href="${u}" data-href="${u}">${txt}</a>`;});
   h=h.replace(/(^|[^"=>])(https?:\/\/[^\s<]+[^\s<.,)!?:;])/g,(m,pre,u)=>{const w=u.match(WALL_RE); return w?`${pre}${postBtn(w[1])}`:`${pre}<a href="${u}" data-href="${u}">${u}</a>`;});
@@ -92,7 +93,7 @@ function gallery(imgs){ return `<div class="gallery">${imgs.map(s=>`<img src="${
 function videoBlock(posts){
   if(!posts||!posts.length) return '';
   return posts.map(p=>`<div class="post">
-    ${p.text?`<details open class="arrow"><summary aria-label="Свернуть или развернуть"></summary><div class="desc">${richText(p.text)}</div></details>`:''}
+    ${p.text?`<details open class="arrow"><summary aria-label="Свернуть или развернуть"></summary><div class="desc">${richText(p.text,((p.post||'').match(WALL_RE)||[])[1])}</div></details>`:''}
     ${p.videos.length?`<div class="vids">${p.videos.map((v,i)=>v.file?`<div class="vid"><video controls playsinline preload="none" poster="${v.file.replace('.mp4','.jpg')}" src="${v.file}"></video><div class="hint">Видео ${i+1}${v.dur?' · '+v.dur:''}</div></div>`
       :`<div class="vid"><button class="vplay" data-oid="${v.oid}" data-vid="${v.id}">▶ Видео ${i+1}${v.dur?' · '+v.dur:''} (плеер VK)</button>
       <a class="vlink" href="${v.url}" data-href="${v.url}">открыть в VK</a></div>`).join('')}</div>`:''}</div>`).join('');
