@@ -3,7 +3,7 @@ const tg = window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.i
 const inTG = !!(tg && tg.platform && tg.platform !== 'unknown');
 if (tg) { try { tg.ready(); tg.expand(); } catch (e) {} }
 
-const state = {cat:'Варганы', q:'', cart:{}, stack:[]};
+const state = {cat:'Варганы', q:'', cart:{}, stack:[], delivery:0, contact:'', addr:''};
 const $app = document.getElementById('app');
 const fb = document.getElementById('fallbackMain');
 let mainHandler = null;
@@ -31,6 +31,7 @@ const priceLabel = p => p.customPrice?('от '+rub(p.price)):rub(p.price);
 const lineUnit = l => { const p=PRODUCTS.find(x=>x.id===l.pid); const base=(l.custom!=null&&l.custom!=='')?+l.custom:p.price; return base + l.opts.reduce((s,o)=>s+optById(o).price,0); };
 const cartItems = () => Object.values(state.cart).map(l=>({...l,p:PRODUCTS.find(x=>x.id===l.pid)}));
 const cartTotal = () => cartItems().reduce((s,l)=>s+lineUnit(l)*l.q,0);
+const orderTotal = () => cartTotal() + (state.delivery||0);
 function updCount(){ document.getElementById('cartCount').textContent = cartItems().reduce((a,l)=>a+l.q,0); }
 function add(pid,opts,custom){ const k=pid+'|'+opts.slice().sort().join(','); state.cart[k]=state.cart[k]||{pid,opts:opts.slice(),q:0}; state.cart[k].q++; if(custom!=null&&custom!=='') state.cart[k].custom=+custom; updCount(); haptic(); }
 // ---- Экраны ----
@@ -195,19 +196,40 @@ function cart(){
 }
 const METHODS={crypto:'Крипта (USDT/TON)',rf:'Карта РФ',intl:'Международная карта'};
 function checkout(){
-  $app.innerHTML=`<div class="p"><h2>Оформление</h2><p>Сумма: <b>${rub(cartTotal())}</b></p>
-  <label>Имя / контакт<input id="contact" placeholder="@username или телефон" value="${(inTG&&tg.initDataUnsafe.user&&tg.initDataUnsafe.user.username)?'@'+tg.initDataUnsafe.user.username:''}"></label>
-  <label>Адрес доставки<textarea id="addr" rows="2" placeholder="Страна, город, адрес"></textarea></label>
+  const defContact=state.contact||((inTG&&tg.initDataUnsafe.user&&tg.initDataUnsafe.user.username)?'@'+tg.initDataUnsafe.user.username:'');
+  const paint=()=>{
+    const goods=cartTotal(), del=state.delivery||0, tot=goods+del;
+    document.getElementById('sumGoods').textContent=rub(goods);
+    document.getElementById('sumDel').textContent=del?rub(del):'—';
+    document.getElementById('sumTot').textContent=rub(tot);
+    setMain(`К оплате · ${rub(tot)}`, ()=>{
+      state.contact=(document.getElementById('contact')||{}).value||'';
+      state.addr=(document.getElementById('addr')||{}).value||'';
+      const v=+(document.getElementById('delivery').value||0);
+      state.delivery=v>0?v:0;
+      if(!state.delivery){ alert('Впишите стоимость доставки по ответу мастера'); return; }
+      const m=document.querySelector('input[name=pm]:checked').value; go(()=>pay(m));
+    });
+  };
+  $app.innerHTML=`<div class="p"><h2>Оформление</h2>
+  <p>Товары: <b id="sumGoods">${rub(cartTotal())}</b></p>
+  <label>Доставка, ₽ (по ответу мастера)<input id="delivery" type="number" min="0" step="50" inputmode="numeric" placeholder="сумма доставки" value="${state.delivery||''}"></label>
+  <p class="hint">Сначала уточните доставку у мастера, затем впишите сумму — она добавится к оплате.</p>
+  <p>Доставка: <b id="sumDel">${state.delivery?rub(state.delivery):'—'}</b><br>Итого к оплате: <b id="sumTot">${rub(orderTotal())}</b></p>
+  <label>Имя / контакт<input id="contact" placeholder="@username или телефон" value="${esc(defContact)}"></label>
+  <label>Адрес доставки<textarea id="addr" rows="2" placeholder="Страна, город, адрес">${esc(state.addr||'')}</textarea></label>
   <h3>Способ оплаты</h3>${Object.entries(METHODS).map(([k,v],i)=>`<label class="pm"><input type="radio" name="pm" value="${k}" ${i?'':'checked'} style="width:auto"> ${v}</label>`).join('')}
   <p class="hint">Цены в рублях. При оплате криптой сумма в USDT/TON подтверждается продавцом вручную по текущему курсу.</p><p class="hint">⚠️ Демо: реальные платежи не подключены.</p>${backLink()}</div>`;
   bindBack();
-  setMain('Перейти к оплате', ()=>{ const m=document.querySelector('input[name=pm]:checked').value; go(()=>pay(m)); });
+  const d=document.getElementById('delivery');
+  d.oninput=()=>{ state.delivery=+(d.value||0); paint(); };
+  paint();
 }
 function pay(m){
-  const order={items:cartItems().map(i=>({id:i.p.id,name:i.p.name,options:i.opts.map(o=>oname(optById(o))),qty:i.q,unit:lineUnit(i)})),total:cartTotal(),contact:(document.getElementById('contact')||{}).value};
+  const order={items:cartItems().map(i=>({id:i.p.id,name:i.p.name,options:i.opts.map(o=>oname(optById(o))),qty:i.q,unit:lineUnit(i)})),goods:cartTotal(),delivery:state.delivery||0,total:orderTotal(),contact:state.contact,addr:state.addr};
   $app.innerHTML=`<div class="p"><h2>${METHODS[m]}</h2><p>К оплате: <b>${rub(order.total)}</b></p><div id="res" class="hint">Создаём счёт…</div>${backLink()}</div>`; bindBack(); setMain('',null);
   const fn = m==='crypto'?createCryptoInvoice:createCardPayment;
-  fn(order,m).then(r=>{ document.getElementById('res').innerHTML=r.html; setMain('Я оплатил (демо)', ()=>{ $app.innerHTML=`<div class="p"><h2>Спасибо!</h2><div class="mock">ДЕМО: заказ «оформлен». В реальной версии бэкенд проверит оплату и пришлёт уведомление владельцу через Bot API sendMessage.</div></div>`; state.cart={}; updCount(); setMain('В каталог',catalog); }); });
+  fn(order,m).then(r=>{ document.getElementById('res').innerHTML=r.html; setMain('Я оплатил (демо)', ()=>{ $app.innerHTML=`<div class="p"><h2>Спасибо!</h2><div class="mock">ДЕМО: заказ «оформлен». В реальной версии бэкенд проверит оплату и пришлёт уведомление владельцу через Bot API sendMessage.</div></div>`; state.cart={}; state.delivery=0; updCount(); setMain('В каталог',catalog); }); });
 }
 
 // ================= ТОЧКИ ИНТЕГРАЦИИ ПЛАТЕЖЕЙ (сейчас МОК) =================
