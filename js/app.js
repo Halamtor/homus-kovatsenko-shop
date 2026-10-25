@@ -192,7 +192,7 @@ function info(){
 function cart(){
   const items=Object.entries(state.cart);
   const delBlock=items.length?`<p class="hint">Перед оформлением уточните доставку у мастера.</p>
-  <label>Стоимость доставки, ₽<input id="delivery" type="number" min="0" step="50" inputmode="numeric" placeholder="сумма доставки" value="${state.delivery||''}"></label>
+  <label>Стоимость доставки, ₽<input id="delivery" type="number" min="1" step="1" inputmode="numeric" placeholder="от 1 ₽" value="${state.delivery||''}"></label>
   <p>Товары: <b>${rub(cartTotal())}</b>${state.delivery?` · Доставка: <b>${rub(state.delivery)}</b>`:''}<br>Итого: <b>${rub(orderTotal())}</b></p>`:`<p class="hint">Корзина пуста</p>`;
   $app.innerHTML=`<div class="p"><h2>Корзина</h2>${items.length?items.map(([k,l])=>{const p=PRODUCTS.find(x=>x.id===l.pid);return `<div class="row"><img src="${p.imgs[0]}"><div style="flex:1">${esc(p.name)}
    ${OPTIONS.map(o=>`<label class="hint" style="display:block"><input type="checkbox" class="co" data-k="${k}" value="${o.id}" ${l.opts.includes(o.id)?'checked':''} style="width:auto;margin:2px 4px 0 0">${esc(oname(o))} +${rub(o.price)}</label>`).join('')}
@@ -208,8 +208,18 @@ function cart(){
     else state.cart[k]={pid:l.pid,opts,q:l.q,custom:l.custom}; rerender();});
   $app.querySelectorAll('.cprice').forEach(inp=>inp.onchange=()=>{ const l=state.cart[inp.dataset.k]; const p=PRODUCTS.find(x=>x.id===l.pid); let v=+inp.value; if(!v||v<p.price) v=p.price; l.custom=v; rerender(); });
   const d=document.getElementById('delivery');
-  if(d){ d.onchange=()=>{ state.delivery=+(d.value||0); rerender(); }; d.onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); d.blur(); } }; }
-  setMain(items.length?`Оформить · ${rub(orderTotal())}`:'', ()=>go(checkout));
+  const syncDel=()=>{ state.delivery=Math.max(0, +(d&&d.value||0)); };
+  const goPay=()=>{
+    syncDel();
+    if(!(state.delivery>=1)){ alert('Впишите стоимость доставки (хотя бы 1 ₽) — уточните у мастера'); if(d) d.focus(); return; }
+    go(checkout);
+  };
+  if(d){
+    d.setAttribute('min','1');
+    d.oninput=()=>{ syncDel(); setMain(items.length?((state.delivery>=1)?`К оплате · ${rub(orderTotal())}`:'Впишите доставку'):'', items.length?goPay:null); };
+    d.onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); d.blur(); goPay(); } };
+  }
+  setMain(items.length?((state.delivery>=1)?`К оплате · ${rub(orderTotal())}`:'Впишите доставку'):'', items.length?goPay:null);
 }
 const METHODS={crypto:'Крипта (USDT/TON)',rf:'Карта РФ',intl:'Международная карта'};
 function checkout(){
@@ -224,13 +234,13 @@ function checkout(){
       state.addr=(document.getElementById('addr')||{}).value||'';
       const v=+(document.getElementById('delivery').value||0);
       state.delivery=v>0?v:0;
-      if(!state.delivery){ alert('Перед оформлением уточните доставку у мастера и впишите сумму'); return; }
+      if(!(state.delivery>=1)){ alert('Впишите стоимость доставки (хотя бы 1 ₽) — уточните у мастера'); return; }
       const m=document.querySelector('input[name=pm]:checked').value; go(()=>pay(m));
     });
   };
   $app.innerHTML=`<div class="p"><h2>Оформление</h2>
   <p>Товары: <b id="sumGoods">${rub(cartTotal())}</b></p>
-  <label>Доставка, ₽<input id="delivery" type="number" min="0" step="50" inputmode="numeric" placeholder="уточните у мастера" value="${state.delivery||''}"></label>
+  <label>Доставка, ₽<input id="delivery" type="number" min="1" step="1" inputmode="numeric" placeholder="от 1 ₽" value="${state.delivery||''}"></label>
   <p>Доставка: <b id="sumDel">${state.delivery?rub(state.delivery):'—'}</b><br>Итого к оплате: <b id="sumTot">${rub(orderTotal())}</b></p>
   <label>Имя / контакт<input id="contact" placeholder="@username или телефон" value="${esc(defContact)}"></label>
   <label>Адрес доставки<textarea id="addr" rows="2" placeholder="Страна, город, адрес">${esc(state.addr||'')}</textarea></label>
