@@ -41,8 +41,8 @@ function catalog(){
   const olist=showO?OPTIONS.filter(o=>o.name.toLowerCase().includes(q)):[];
   $app.innerHTML=`<input class="search" id="q" placeholder="Поиск" value="${esc(state.q)}">
   <div class="chips">${cats.map(c=>`<button class="chip ${c===state.cat?'on':''}" data-c="${c}">${c}</button>`).join('')}</div>
-  <div class="grid">${list.map(p=>`<div class="item" data-id="${p.id}"><img src="${p.imgs[0]}" alt="" loading="lazy"><div class="t">${esc(p.name)}<div class="price">${p.id===6?'от ':''}${rub(p.price)}</div></div></div>`).join('')}</div>
-  ${olist.length?`<h3 class="p" style="padding-bottom:0">Опции к варгану</h3><div class="grid">${olist.map(o=>`<div class="item opt" data-o="${o.id}"><img src="${o.imgs[0]}" alt="" loading="lazy"><div class="t">${esc(o.name)}<div class="price">+${rub(o.price)}</div><div class="tag">добавляется к варгану</div></div></div>`).join('')}</div>`:''}
+  <div class="grid">${list.map(p=>`<div class="item" data-id="${p.id}"><img src="${p.imgs[0]}" alt="" loading="lazy"><div class="t">${esc(p.name)}<div class="price">${rub(p.price)}</div></div></div>`).join('')}</div>
+  ${olist.length?`<h3 class="p" style="padding-bottom:0">Опции к варгану</h3><div class="grid">${olist.map(o=>`<div class="item opt" data-o="${o.id}"><img src="${o.imgs[0]}" alt="" loading="lazy"><div class="t">${esc(oname(o))}<div class="price">+${rub(o.price)}</div><div class="tag">добавляется к варгану</div></div></div>`).join('')}</div>`:''}
   ${!list.length&&!olist.length?'<p class="hint p">Ничего не найдено</p>':''}`;
   const qi=document.getElementById('q'); qi.oninput=e=>{state.q=e.target.value; catalog(); const n=document.getElementById('q'); n.focus(); n.setSelectionRange(n.value.length,n.value.length);};
   $app.querySelectorAll('.chip').forEach(b=>b.onclick=()=>{state.cat=b.dataset.c;catalog();});
@@ -50,32 +50,67 @@ function catalog(){
   $app.querySelectorAll('.item[data-o]').forEach(el=>el.onclick=()=>go(()=>option(el.dataset.o)));
   const n=cartTotal(); setMain(n?`Корзина · ${rub(n)}`:'', ()=>go(cart));
 }
+const oname = o => o.name.replace(/^ОПЦИЯ:\s*/,'');
+// Дословный текст VK → HTML: экранируем, markdown-ссылки [текст](url) и голые URL делаем кликабельными
+function richText(t){
+  let h=esc(t);
+  h=h.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,(m,txt,u)=>`<a href="${u}" data-href="${u}">${txt}</a>`);
+  h=h.replace(/(^|[^"=>])(https?:\/\/[^\s<]+[^\s<.,)!?:;])/g,(m,pre,u)=>`${pre}<a href="${u}" data-href="${u}">${u}</a>`);
+  return h;
+}
+// Ссылки открываем через Telegram.WebApp.openLink (в браузере — новая вкладка)
+document.addEventListener('click',e=>{const a=e.target.closest('[data-href]'); if(a){e.preventDefault(); openExt(a.dataset.href);}});
+function gallery(imgs){ return `<div class="gallery">${imgs.map(s=>`<img src="${s}" alt="" loading="lazy">`).join('')}</div>${imgs.length>1?`<p class="hint">← листайте фото (${imgs.length}) →</p>`:''}`; }
+// Видео: VK-плеер грузится только по нажатию; ссылка-фолбэк всегда есть (VK может быть медленным/заблокированным)
+function videoBlock(posts){
+  if(!posts||!posts.length) return '';
+  return `<h3>Видео и звучание</h3>`+posts.map(p=>`<div class="post">
+    <div class="hint">${p.related?'Связанный пост сообщества':'Пост из описания'}: <a href="${p.post}" data-href="${p.post}">${p.post.replace('https://','')}</a></div>
+    ${p.videos.length?`<div class="vids">${p.videos.map((v,i)=>`<div class="vid"><button class="vplay" data-oid="${v.oid}" data-vid="${v.id}">▶ Видео ${i+1}${v.dur?' · '+v.dur:''}</button>
+      <a class="vlink" href="${v.url}" data-href="${v.url}">открыть в VK</a></div>`).join('')}</div>`:`<a class="btn sec" href="${p.post}" data-href="${p.post}">Открыть пост в VK</a>`}</div>`).join('');
+}
+function bindVideos(){ $app.querySelectorAll('.vplay').forEach(b=>b.onclick=()=>{
+  const f=document.createElement('iframe'); f.className='vframe';
+  f.src=`https://vk.com/video_ext.php?oid=${b.dataset.oid}&id=${b.dataset.vid}&hd=2`;
+  f.allow='autoplay; encrypted-media; fullscreen; picture-in-picture'; f.setAttribute('allowfullscreen',''); f.loading='lazy';
+  b.parentElement.insertBefore(f,b); b.remove(); }); }
 function option(id){
   const o=optById(id);
-  $app.innerHTML=`<div class="p"><div class="gallery">${o.imgs.map(s=>`<img src="${s}" alt="">`).join('')}</div>
-  <h2>${esc(o.name)}</h2><div class="price" style="font-size:22px">+${rub(o.price)}</div>
-  <div class="desc">${esc(o.desc)}</div>${o.examples?`<button class="btn sec" id="ex">Примеры гравировок (VK)</button>`:''}
-  <p class="hint">Опция добавляется к варгану: выберите её на странице варгана или в корзине.</p>${backLink()}</div>`;
-  bindBack(); const ex=document.getElementById('ex'); if(ex) ex.onclick=()=>openExt(o.examples);
-  setMain('Выбрать варган', catalog);
+  $app.innerHTML=`<div class="p">${gallery(o.imgs)}
+  <h2>${esc(o.name)}</h2><div class="price" style="font-size:22px">${rub(o.price)}</div>
+  <p class="hint">Опция добавляется к варгану: отметьте её на странице варгана или в корзине.</p>
+  <div class="desc">${richText(o.desc)}</div>${videoBlock(o.posts)}
+  <p><a href="${o.vk}" data-href="${o.vk}">Карточка в VK</a></p>${backLink()}</div>`;
+  bindBack(); bindVideos(); setMain('Выбрать варган', catalog);
 }
 function product(id){
   const p=PRODUCTS.find(x=>x.id===id); const sel=new Set();
-  $app.innerHTML=`<div class="p"><div class="gallery">${p.imgs.map(s=>`<img src="${s}" alt="">`).join('')}</div>
-  ${p.imgs.length>1?'<p class="hint">← листайте фото →</p>':''}<h2>${esc(p.name)}</h2><div class="price" style="font-size:22px">${p.id===6?'от ':''}${rub(p.price)}</div>
-  ${p.listen.length?`<div>${p.listen.map((u,i)=>`<button class="btn sec listen" data-u="${u}">🎧 Послушать звучание${p.listen.length>1?' '+(i+1):''} (VK)</button>`).join('')}</div>`:''}
-  <h3>Опции</h3>${OPTIONS.map(o=>`<label class="pm"><input type="checkbox" value="${o.id}" style="width:auto"> ${esc(o.name)} <b>+${rub(o.price)}</b></label>`).join('')}
-  <h3>Описание</h3><div class="desc">${esc(p.desc)}</div>${backLink()}</div>`;
-  bindBack(); $app.querySelectorAll('.listen').forEach(b=>b.onclick=()=>openExt(b.dataset.u));
+  $app.innerHTML=`<div class="p">${gallery(p.imgs)}
+  <h2>${esc(p.name)}</h2><div class="price" style="font-size:22px">${rub(p.price)}</div>
+  <h3>Опции</h3>${OPTIONS.map(o=>`<label class="pm"><input type="checkbox" value="${o.id}" style="width:auto"> ${esc(oname(o))} <b>+${rub(o.price)}</b></label>`).join('')}
+  <h3>Описание</h3><div class="desc">${richText(p.desc)}</div>${videoBlock(p.posts)}
+  <p><a href="${p.vk}" data-href="${p.vk}">Карточка в VK</a></p>${backLink()}</div>`;
+  bindBack(); bindVideos();
   const total=()=>p.price+[...sel].reduce((s,o)=>s+optById(o).price,0);
   const upd=()=>setMain(`В корзину · ${rub(total())}`, ()=>{add(id,[...sel]); setMain('В корзине ✓ · перейти', ()=>go(cart));});
   $app.querySelectorAll('input[type=checkbox]').forEach(c=>c.onchange=()=>{c.checked?sel.add(c.value):sel.delete(c.value); upd();});
   upd();
 }
+const COMMUNITY={name:'ВАРГАН | ХОМУС | ВАСИЛИЯ КОВАЦЕНКО',vk:'https://vk.com/vargan64',phone:'+7 958 551-67-40',site:'https://shkolavargana.ru',
+  about:'Здравствуйте, дорогие мои! Меня зовут Василий Коваценко, мастер по изготовлению варганов. Инструменты из титаносодержащей нержавеющей стали, полностью вручную, без станков, по классической технологии. На моих варганах играют и преподают Максим Булыгин, Добрыня Сатин, Алексей Чичаков, Игорь Вептипрахов, Алексей Митин и др.'};
+function info(){
+  const c=COMMUNITY;
+  $app.innerHTML=`<div class="p" style="text-align:center"><img src="img/avatar.jpg" class="ava-big" alt=""><h2>Хомус Коваценко</h2><div class="hint">${esc(c.name)}</div></div>
+  <div class="p"><div class="desc">${esc(c.about)}</div>
+  <p>📞 <a href="tel:${c.phone.replace(/[^+\d]/g,'')}">${c.phone}</a></p>
+  <p>🌐 <a href="${c.site}" data-href="${c.site}">shkolavargana.ru</a></p>
+  <p>💬 <a href="${c.vk}" data-href="${c.vk}">Сообщество VK — vk.com/vargan64</a></p>${backLink()}</div>`;
+  bindBack(); setMain('Перейти в каталог', catalog);
+}
 function cart(){
   const items=Object.entries(state.cart);
   $app.innerHTML=`<div class="p"><h2>Корзина</h2>${items.length?items.map(([k,l])=>{const p=PRODUCTS.find(x=>x.id===l.pid);return `<div class="row"><img src="${p.imgs[0]}"><div style="flex:1">${esc(p.name)}
-   ${OPTIONS.map(o=>`<label class="hint" style="display:block"><input type="checkbox" class="co" data-k="${k}" value="${o.id}" ${l.opts.includes(o.id)?'checked':''} style="width:auto;margin:2px 4px 0 0">${esc(o.name.split(' ').slice(0,2).join(' '))}… +${rub(o.price)}</label>`).join('')}
+   ${OPTIONS.map(o=>`<label class="hint" style="display:block"><input type="checkbox" class="co" data-k="${k}" value="${o.id}" ${l.opts.includes(o.id)?'checked':''} style="width:auto;margin:2px 4px 0 0">${esc(oname(o))} +${rub(o.price)}</label>`).join('')}
    <div class="price">${rub(lineUnit(l)*l.q)}</div></div>
   <div class="qty"><button data-d="-1" data-k="${k}">−</button> ${l.q} <button data-d="1" data-k="${k}">+</button></div></div>`}).join('')+`<h3>Итого: ${rub(cartTotal())}</h3>`:'<p class="hint">Корзина пуста</p>'}${backLink()}</div>`;
   bindBack();
@@ -97,7 +132,7 @@ function checkout(){
   setMain('Перейти к оплате', ()=>{ const m=document.querySelector('input[name=pm]:checked').value; go(()=>pay(m)); });
 }
 function pay(m){
-  const order={items:cartItems().map(i=>({id:i.p.id,name:i.p.name,options:i.opts.map(o=>optById(o).name),qty:i.q,unit:lineUnit(i)})),total:cartTotal(),contact:(document.getElementById('contact')||{}).value};
+  const order={items:cartItems().map(i=>({id:i.p.id,name:i.p.name,options:i.opts.map(o=>oname(optById(o))),qty:i.q,unit:lineUnit(i)})),total:cartTotal(),contact:(document.getElementById('contact')||{}).value};
   $app.innerHTML=`<div class="p"><h2>${METHODS[m]}</h2><p>К оплате: <b>${rub(order.total)}</b></p><div id="res" class="hint">Создаём счёт…</div>${backLink()}</div>`; bindBack(); setMain('',null);
   const fn = m==='crypto'?createCryptoInvoice:createCardPayment;
   fn(order,m).then(r=>{ document.getElementById('res').innerHTML=r.html; setMain('Я оплатил (демо)', ()=>{ $app.innerHTML=`<div class="p"><h2>Спасибо!</h2><div class="mock">ДЕМО: заказ «оформлен». В реальной версии бэкенд проверит оплату и пришлёт уведомление владельцу через Bot API sendMessage.</div></div>`; state.cart={}; updCount(); setMain('В каталог',catalog); }); });
@@ -124,4 +159,5 @@ async function createCardPayment(order,m){
   return {html:`<div class="mock"><b>ДЕМО-платёж (${prov})</b><br>Здесь пользователь был бы перенаправлен на защищённую страницу оплаты провайдера.<br>Ссылка: <code>https://pay.example/DEMO</code></div>`};
 }
 document.getElementById('cartBtn').onclick=()=>go(cart);
+document.getElementById('brand').onclick=()=>go(info);
 catalog();
