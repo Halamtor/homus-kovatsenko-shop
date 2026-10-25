@@ -66,7 +66,9 @@ function richText(t){
 function allPosts(){ const m={}; [...PRODUCTS,...OPTIONS].forEach(e=>(e.posts||[]).forEach(p=>{const w=(p.post||'').match(WALL_RE); if(w&&!m[w[1]]) m[w[1]]=p;})); return m; }
 function postScreen(id){
   const p=allPosts()[id];
-  $app.innerHTML=`<div class="p">${p?videoBlock([p]):'<p class="hint">Пост недоступен</p>'}${backLink()}</div>`;
+  let title='',post=p;
+  if(p&&p.text){ const lines=p.text.split('\n'); const i=lines.findIndex(l=>l.trim()); if(i>=0){ title=lines[i].trim(); post=Object.assign({},p,{text:lines.slice(i+1).join('\n').replace(/^\s+/,'')}); } }
+  $app.innerHTML=`<div class="p">${title?`<h2 class="bigtitle">${esc(title)}</h2>`:''}${p?videoBlock([post]):'<p class="hint">Пост недоступен</p>'}${backLink()}</div>`;
   bindBack(); bindVideos(); setMain('Назад', onBack);
 }
 document.addEventListener('click',e=>{const a=e.target.closest('[data-post]'); if(a){e.preventDefault(); const id=a.dataset.post;
