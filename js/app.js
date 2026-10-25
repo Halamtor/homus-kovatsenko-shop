@@ -75,7 +75,19 @@ function descOf(e){
     }
   }
   // пустая ссылка на вердианскую настройку — временно на страницу мастера; перед передачей заменить на нормальную
-  t=t.replace(/\s*\(подробнее о вердианской настройке здесь:\s*\)/g,' (подробнее о вердианской настройке [здесь](https://t.me/vasilykovatsenko))');
+  // ссылки на альбомы, которые уже открывает «Смотреть примеры»
+  try{
+    const isOpt=OPTIONS.some(o=>o.id===e.id && o.name===e.name);
+    const albIds=((typeof ALB_LINKS!=='undefined'?ALB_LINKS:{})[isOpt?'o':'p']||{})[e.id]||[];
+    albIds.forEach(aid=>{
+      const a=typeof albById==='function'?albById(aid):null; if(!a) return;
+      const m=(a.vk||'').match(/album-73004917_\d+/);
+      if(m) t=t.replace(new RegExp('https?://(?:m\\.)?vk\\.(?:com|ru)/'+m[0],'gi'),'');
+      t=t.replace(/по ссылке вы можете увидеть примеры[^\n]*/gi,'');
+    });
+    if(albIds.length) t=t.replace(/Примеры гравировок и выбрать одну из них\.\.\./gi,'').replace(/примеры гравировок и выбрать одну из них\.\.\./gi,'');
+  }catch(err){}
+    t=t.replace(/\s*\(подробнее о вердианской настройке здесь:\s*\)/g,' (подробнее о вердианской настройке [здесь](https://t.me/vasilykovatsenko))');
   t=t.replace(/[ \t]+\n/g,'\n').replace(/\n{3,}/g,'\n\n').trim();
   return richText(t);
 }
