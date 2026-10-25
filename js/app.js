@@ -54,12 +54,23 @@ function catalog(){
 }
 const oname = o => o.name.replace(/^ОПЦИЯ:\s*/,'');
 // Дословный текст VK → HTML: экранируем, markdown-ссылки [текст](url) и голые URL делаем кликабельными
+// Посты VK открываем внутри магазина кнопкой «Смотреть»; остальные ссылки — через openLink
+const WALL_RE=/https?:\/\/(?:m\.)?vk\.com\/wall-73004917_(\d+)/;
+function postBtn(id,label){ return `<a class="btn seebtn" href="#" data-post="${id}">${label||'Смотреть'}</a>`; }
 function richText(t){
   let h=esc(t);
-  h=h.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,(m,txt,u)=>`<a href="${u}" data-href="${u}">${txt}</a>`);
-  h=h.replace(/(^|[^"=>])(https?:\/\/[^\s<]+[^\s<.,)!?:;])/g,(m,pre,u)=>`${pre}<a href="${u}" data-href="${u}">${u}</a>`);
+  h=h.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,(m,txt,u)=>{const w=u.match(WALL_RE); return w?postBtn(w[1]):`<a href="${u}" data-href="${u}">${txt}</a>`;});
+  h=h.replace(/(^|[^"=>])(https?:\/\/[^\s<]+[^\s<.,)!?:;])/g,(m,pre,u)=>{const w=u.match(WALL_RE); return w?`${pre}${postBtn(w[1])}`:`${pre}<a href="${u}" data-href="${u}">${u}</a>`;});
   return h;
 }
+function allPosts(){ const m={}; [...PRODUCTS,...OPTIONS].forEach(e=>(e.posts||[]).forEach(p=>{const w=(p.post||'').match(WALL_RE); if(w&&!m[w[1]]) m[w[1]]=p;})); return m; }
+function postScreen(id){
+  const p=allPosts()[id];
+  $app.innerHTML=`<div class="p"><h2>Пост</h2>${p?videoBlock([p]):'<p class="hint">Пост недоступен</p>'}${backLink()}</div>`;
+  bindBack(); bindVideos(); setMain('Назад', onBack);
+}
+document.addEventListener('click',e=>{const a=e.target.closest('[data-post]'); if(a){e.preventDefault(); const id=a.dataset.post;
+  if(allPosts()[id]) go(()=>postScreen(id)); else openExt(`https://vk.com/wall-73004917_${id}`);}});
 // Ссылки открываем через Telegram.WebApp.openLink (в браузере — новая вкладка)
 document.addEventListener('click',e=>{const a=e.target.closest('[data-href]'); if(a){e.preventDefault(); openExt(a.dataset.href);}});
 function gallery(imgs){ return `<div class="gallery">${imgs.map(s=>`<img src="${s}" alt="" loading="lazy">`).join('')}</div>${imgs.length>1?`<p class="hint">← листайте фото (${imgs.length}) →</p>`:''}`; }
