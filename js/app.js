@@ -80,7 +80,7 @@ function gallery(imgs){ return `<div class="gallery">${imgs.map(s=>`<img src="${
 function videoBlock(posts){
   if(!posts||!posts.length) return '';
   return posts.map(p=>`<div class="post">
-    ${p.text?`<div class="desc">${richText(p.text)}</div>`:''}
+    ${p.text?`<details open class="arrow"><summary aria-label="Свернуть или развернуть"></summary><div class="desc">${richText(p.text)}</div></details>`:''}
     ${p.videos.length?`<div class="vids">${p.videos.map((v,i)=>v.file?`<div class="vid"><video controls playsinline preload="none" poster="${v.file.replace('.mp4','.jpg')}" src="${v.file}"></video><div class="hint">Видео ${i+1}${v.dur?' · '+v.dur:''}</div></div>`
       :`<div class="vid"><button class="vplay" data-oid="${v.oid}" data-vid="${v.id}">▶ Видео ${i+1}${v.dur?' · '+v.dur:''} (плеер VK)</button>
       <a class="vlink" href="${v.url}" data-href="${v.url}">открыть в VK</a></div>`).join('')}</div>`:''}</div>`).join('');
