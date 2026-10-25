@@ -135,8 +135,8 @@ function option(id){
   $app.innerHTML=`<div class="p">${gallery(o.imgs)}
   <h2>${esc(o.name)}</h2><div class="price" style="font-size:22px">${rub(o.price)}</div>
   <p class="hint">Опция добавляется к варгану: отметьте её на странице варгана или в корзине.</p>
-  ${listenBtn('o',o)}${albumBtns('o',id)}${buyVK(o.vk)}${supportBtn(o.name)}<div class="desc">${descOf(o)}</div>${backLink()}</div>`;
-  bindBack(); bindAlbBtns(); const lb=document.getElementById('listen'); if(lb) lb.onclick=()=>go(()=>listen('o',id)); setMain('Выбрать варган', catalog);
+  ${albumBtns('o',id)}${buyVK(o.vk)}${supportBtn(o.name)}<div class="desc">${descOf(o)}</div>${backLink()}</div>`;
+  bindBack(); bindAlbBtns(); setMain('Выбрать варган', catalog);
 }
 function product(id){
   const p=PRODUCTS.find(x=>x.id===id); const sel=new Set();

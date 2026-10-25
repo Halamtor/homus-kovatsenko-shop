@@ -15,9 +15,15 @@ function albumsList(){
 }
 function album(id){
   const a=albById(id);
+  // видео/описание опции (золото, гравировка) — внутри примеров, не отдельной кнопкой «Послушать»
+  const linkedOpts=Object.entries(ALB_LINKS.o||{}).filter(([,albums])=>albums.includes(id)).map(([oid])=>optById(oid)).filter(Boolean);
+  const posts=linkedOpts.flatMap(o=>o.posts||[]);
+  const media=typeof videoBlock==='function'&&posts.length?`<h3 class="p" style="padding-bottom:0">Видео и описание</h3><div class="p">${videoBlock(posts)}</div>`:'';
   $app.innerHTML=`<div class="p"><h2>${esc(a.name)}</h2><p class="hint">${a.photos.length} фото · нажмите, чтобы открыть · <a href="${a.vk}" data-href="${a.vk}">альбом в VK</a></p></div>
-  <div class="agrid">${a.photos.map((p,i)=>`<img src="${albSrc(a,p[0],1)}" data-i="${i}" width="${p[1]}" height="${p[2]}" alt="" loading="lazy" decoding="async">`).join('')}</div><div class="p">${backLink()}</div>`;
+  <div class="agrid">${a.photos.map((p,i)=>`<img src="${albSrc(a,p[0],1)}" data-i="${i}" width="${p[1]}" height="${p[2]}" alt="" loading="lazy" decoding="async">`).join('')}</div>
+  ${media}<div class="p">${backLink()}</div>`;
   bindBack(); $app.querySelectorAll('.agrid img').forEach(im=>im.onclick=()=>viewer(a,+im.dataset.i));
+  if(posts.length&&typeof bindVideos==='function') bindVideos();
   setMain('Перейти в каталог', catalog);
 }
 function viewer(a,start){
