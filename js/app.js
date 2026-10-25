@@ -221,7 +221,15 @@ function cart(){
   }
   setMain(items.length?((state.delivery>=1)?`К оплате · ${rub(orderTotal())}`:'Впишите доставку'):'', items.length?goPay:null);
 }
-const METHODS={crypto:'Крипта (USDT/TON)',rf:'Карта РФ',intl:'Международная карта'};
+const METHODS={rf:'Карта РФ',intl:'Международная Visa',crypto:'Крипта (USDT/TON)'};
+// Реквизиты: заполним после ответа мастера. Пустые строки → просим написать мастеру.
+const PAY={
+  rf:{hint:'Перевод на карту РФ', lines:[]},
+  intl:{hint:'Перевод на международную Visa', lines:[]},
+  crypto:{hint:'Перевод USDT (TRC-20) или TON', lines:[]}
+};
+const ORDER_API='https://homus-bot.homus-kovatsenko.workers.dev/order';
+
 function checkout(){
   const defContact=state.contact||((inTG&&tg.initDataUnsafe.user&&tg.initDataUnsafe.user.username)?'@'+tg.initDataUnsafe.user.username:'');
   const paint=()=>{
@@ -235,6 +243,8 @@ function checkout(){
       const v=+(document.getElementById('delivery').value||0);
       state.delivery=v>0?v:0;
       if(!(state.delivery>=1)){ alert('Впишите стоимость доставки — уточните у мастера'); return; }
+      if(!state.contact.trim()){ alert('Укажите контакт'); return; }
+      if(!state.addr.trim()){ alert('Укажите адрес доставки'); return; }
       const m=document.querySelector('input[name=pm]:checked').value; go(()=>pay(m));
     });
   };
@@ -245,39 +255,59 @@ function checkout(){
   <label>Имя / контакт<input id="contact" placeholder="@username или телефон" value="${esc(defContact)}"></label>
   <label>Адрес доставки<textarea id="addr" rows="2" placeholder="Страна, город, адрес">${esc(state.addr||'')}</textarea></label>
   <h3>Способ оплаты</h3>${Object.entries(METHODS).map(([k,v],i)=>`<label class="pm"><input type="radio" name="pm" value="${k}" ${i?'':'checked'} style="width:auto"> ${v}</label>`).join('')}
-  <p class="hint">Цены в рублях. При оплате криптой сумма в USDT/TON подтверждается продавцом вручную по текущему курсу.</p><p class="hint">⚠️ Демо: реальные платежи не подключены.</p>${backLink()}</div>`;
+  <p class="hint">После оформления придёт инструкция перевода. Заявка уйдёт мастеру.</p>${backLink()}</div>`;
   bindBack();
   const d=document.getElementById('delivery');
   d.oninput=()=>{ state.delivery=+(d.value||0); paint(); };
   paint();
 }
+
+function buildOrder(m){
+  return {
+    items:cartItems().map(i=>({id:i.p.id,name:i.p.name,options:i.opts.map(o=>oname(optById(o))),qty:i.q,unit:lineUnit(i)})),
+    goods:cartTotal(), delivery:state.delivery||0, total:orderTotal(),
+    contact:state.contact, addr:state.addr, method:METHODS[m]||m, paid:false
+  };
+}
+
+async function sendOrder(order){
+  const body={order, initData:(inTG&&tg.initData)||''};
+  try{
+    const r=await fetch(ORDER_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const j=await r.json().catch(()=>({}));
+    return {ok:!!j.ok, error:j.error||('HTTP '+r.status)};
+  }catch(e){ return {ok:false, error:String(e)}; }
+}
+
+function payHtml(m, order){
+  const p=PAY[m]||{};
+  const lines=(p.lines&&p.lines.length)?p.lines.map(l=>`<div class="mock" style="margin:6px 0">${esc(l)}</div>`).join('')
+    :`<p class="hint">Реквизиты пока уточните у мастера — кнопка ниже. После перевода нажмите «Я оплатил».</p>
+      <a class="btn sec" href="${MASTER}?text=${encodeURIComponent('Здравствуйте! Нужны реквизиты для оплаты заказа на '+order.total+' ₽')}" data-href="${MASTER}?text=${encodeURIComponent('Здравствуйте! Нужны реквизиты для оплаты заказа на '+order.total+' ₽')}">Написать мастеру за реквизитами</a>`;
+  return `<div class="p"><h2>${esc(METHODS[m])}</h2>
+  <p>К оплате: <b>${rub(order.total)}</b></p>
+  <p class="hint">${esc(p.hint||'')}</p>
+  ${lines}
+  <p class="hint">Заявка уже уходит мастеру. После перевода нажмите «Я оплатил».</p>
+  <div id="orderStatus" class="hint">Отправляем заявку…</div>${backLink()}</div>`;
+}
+
 function pay(m){
-  const order={items:cartItems().map(i=>({id:i.p.id,name:i.p.name,options:i.opts.map(o=>oname(optById(o))),qty:i.q,unit:lineUnit(i)})),goods:cartTotal(),delivery:state.delivery||0,total:orderTotal(),contact:state.contact,addr:state.addr};
-  $app.innerHTML=`<div class="p"><h2>${METHODS[m]}</h2><p>К оплате: <b>${rub(order.total)}</b></p><div id="res" class="hint">Создаём счёт…</div>${backLink()}</div>`; bindBack(); setMain('',null);
-  const fn = m==='crypto'?createCryptoInvoice:createCardPayment;
-  fn(order,m).then(r=>{ document.getElementById('res').innerHTML=r.html; setMain('Я оплатил (демо)', ()=>{ $app.innerHTML=`<div class="p"><h2>Спасибо!</h2><div class="mock">ДЕМО: заказ «оформлен». В реальной версии бэкенд проверит оплату и пришлёт уведомление владельцу через Bot API sendMessage.</div></div>`; state.cart={}; state.delivery=0; updCount(); setMain('В каталог',catalog); }); });
+  const order=buildOrder(m);
+  $app.innerHTML=payHtml(m, order); bindBack(); setMain('',null);
+  sendOrder(order).then(r=>{
+    const el=document.getElementById('orderStatus');
+    if(el) el.textContent=r.ok?'Заявка отправлена мастеру.':'Заявку пока не удалось отправить ('+(r.error||'')+'). Напишите мастеру вручную — заказ всё равно можно оплатить переводом.';
+    setMain('Я оплатил', ()=>{
+      order.paid=true;
+      sendOrder(order).finally(()=>{
+        $app.innerHTML=`<div class="p"><h2>Спасибо!</h2><p>Мастер получил заявку${order.paid?' и отметку об оплате':''}. Он свяжется с вами по контакту <b>${esc(order.contact)}</b>.</p>${backLink()}</div>`;
+        state.cart={}; state.delivery=0; updCount(); bindBack(); setMain('В каталог', catalog);
+      });
+    });
+  });
 }
 
-// ================= ТОЧКИ ИНТЕГРАЦИИ ПЛАТЕЖЕЙ (сейчас МОК) =================
-// Никаких секретных токенов во фронтенде! Все вызовы — через ваш бэкенд (POST /api/...).
-
-/** Крипто-счёт. Реально: бэкенд вызывает Crypto Pay API (@CryptoBot) createInvoice
- *  (https://help.crypt.bot/crypto-pay-api) с asset USDT/TON и amount (или currency_type=fiat, fiat=RUB — тогда курс считает сам CryptoBot), возвращает pay_url / mini_app_invoice_url;
- *  во фронте: tg.openTelegramLink(pay_url). Альтернатива: NOWPayments API. Статус — по webhook. */
-async function createCryptoInvoice(order){
-  // const r = await fetch('/api/crypto-invoice',{method:'POST',body:JSON.stringify(order)}).then(r=>r.json());
-  await new Promise(r=>setTimeout(r,400));
-  return {html:`<div class="mock"><b>ДЕМО-счёт</b><br>Сумма заказа: ${rub(order.total)}<br>К оплате в USDT (TRC-20) / TON: <i>сумма будет подтверждена продавцом вручную по курсу</i><br>Адрес: <code>T_ADDRESS_PLACEHOLDER_XXXXXXXXXXXX</code><br>Счёт №DEMO-${Date.now()%100000}<br>В реальной версии — кнопка «Оплатить в @CryptoBot».</div>`};
-}
-/** Оплата картой. m==='rf': бэкенд создаёт платёж в ЮKassa (POST https://api.yookassa.ru/v3/payments,
- *  confirmation.type=redirect) или CloudPayments / Т-Банк (Init) → confirmation_url, открываем tg.openLink(url).
- *  m==='intl': бэкенд создаёт Stripe Checkout Session (POST /v1/checkout/sessions) → session.url.
- *  Подтверждение оплаты — только по webhook провайдера на бэкенде. */
-async function createCardPayment(order,m){
-  await new Promise(r=>setTimeout(r,400));
-  const prov = m==='rf'?'ЮKassa / CloudPayments / Т-Банк':'Stripe Checkout';
-  return {html:`<div class="mock"><b>ДЕМО-платёж (${prov})</b><br>Здесь пользователь был бы перенаправлен на защищённую страницу оплаты провайдера.<br>Ссылка: <code>https://pay.example/DEMO</code></div>`};
-}
 document.getElementById('cartBtn').onclick=()=>go(cart);
 document.getElementById('brand').onclick=()=>go(info);
 catalog();
