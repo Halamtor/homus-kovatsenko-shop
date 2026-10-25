@@ -142,8 +142,8 @@ function product(id){
   const p=PRODUCTS.find(x=>x.id===id); const sel=new Set();
   const priceBlock=p.customPrice
     ?`<div class="price" style="font-size:22px">от ${rub(p.price)}</div>
-  <label>Сумма по ответу мастера, ₽<input id="customPrice" type="number" min="${p.price}" step="100" inputmode="numeric" placeholder="например ${p.price}" value="${p.price}"></label>
-  <p class="hint">Цена зависит от камня. Уточните у мастера и впишите итоговую сумму — она уйдёт в корзину и к оплате.</p>`
+  <p class="hint">Перед заказом уточните сумму у мастера — цена зависит от камня.</p>
+  <label>Итоговая сумма, ₽<input id="customPrice" type="number" min="${p.price}" step="100" inputmode="numeric" placeholder="например ${p.price}" value="${p.price}"></label>`
     :`<div class="price" style="font-size:22px">${rub(p.price)}</div>`;
   $app.innerHTML=`<div class="p">${gallery(p.imgs)}
   <h2>${esc(p.name)}</h2>${priceBlock}
@@ -154,7 +154,7 @@ function product(id){
   const base=()=>{ if(!p.customPrice) return p.price; const v=+(document.getElementById('customPrice').value||0); return v; };
   const total=()=>base()+[...sel].reduce((s,o)=>s+optById(o).price,0);
   const upd=()=>setMain(`В корзину · ${rub(total())}`, ()=>{
-    if(p.customPrice){ const v=base(); if(!v||v<p.price){ alert('Впишите сумму от '+rub(p.price)+' по ответу мастера'); return; } add(id,[...sel],v); }
+    if(p.customPrice){ const v=base(); if(!v||v<p.price){ alert('Перед заказом уточните сумму у мастера и впишите от '+rub(p.price)); return; } add(id,[...sel],v); }
     else add(id,[...sel]);
     setMain('В корзине ✓ · перейти', ()=>go(cart));
   });
