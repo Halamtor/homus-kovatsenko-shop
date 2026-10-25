@@ -179,11 +179,14 @@ function info(){
 }
 function cart(){
   const items=Object.entries(state.cart);
+  const delBlock=items.length?`<label>Доставка, ₽ (по ответу мастера)<input id="delivery" type="number" min="0" step="50" inputmode="numeric" placeholder="сумма доставки" value="${state.delivery||''}"></label>
+  <p class="hint">Уточните доставку у мастера и впишите сумму — она войдёт в итог к оплате.</p>
+  <p>Товары: <b>${rub(cartTotal())}</b>${state.delivery?` · Доставка: <b>${rub(state.delivery)}</b>`:''}<br>Итого: <b>${rub(orderTotal())}</b></p>`:`<p class="hint">Корзина пуста</p>`;
   $app.innerHTML=`<div class="p"><h2>Корзина</h2><p class="hint">Доставку и стоимость согласуем при заказе.</p>${items.length?items.map(([k,l])=>{const p=PRODUCTS.find(x=>x.id===l.pid);return `<div class="row"><img src="${p.imgs[0]}"><div style="flex:1">${esc(p.name)}
    ${OPTIONS.map(o=>`<label class="hint" style="display:block"><input type="checkbox" class="co" data-k="${k}" value="${o.id}" ${l.opts.includes(o.id)?'checked':''} style="width:auto;margin:2px 4px 0 0">${esc(oname(o))} +${rub(o.price)}</label>`).join('')}
    ${p.customPrice?`<label class="hint" style="display:block;margin-top:6px">Сумма варгана, ₽<input class="cprice" data-k="${k}" type="number" min="${p.price}" step="100" inputmode="numeric" value="${l.custom!=null?l.custom:p.price}"></label>`:''}
    <div class="price">${rub(lineUnit(l)*l.q)}</div></div>
-  <div class="qty"><button data-d="-1" data-k="${k}">−</button> ${l.q} <button data-d="1" data-k="${k}">+</button></div></div>`}).join('')+`<h3>Итого: ${rub(cartTotal())}</h3>`:'<p class="hint">Корзина пуста</p>'}${backLink()}</div>`;
+  <div class="qty"><button data-d="-1" data-k="${k}">−</button> ${l.q} <button data-d="1" data-k="${k}">+</button></div></div>`}).join('')+delBlock:'<p class="hint">Корзина пуста</p>'}${backLink()}</div>`;
   bindBack();
   const rerender=()=>{updCount(); state.stack.pop(); go(cart);};
   $app.querySelectorAll('.qty button').forEach(b=>b.onclick=()=>{const k=b.dataset.k; state.cart[k].q+= +b.dataset.d; if(state.cart[k].q<=0) delete state.cart[k]; rerender();});
@@ -192,7 +195,9 @@ function cart(){
     if(state.cart[k]){ state.cart[k].q+=l.q; if(l.custom!=null) state.cart[k].custom=l.custom; }
     else state.cart[k]={pid:l.pid,opts,q:l.q,custom:l.custom}; rerender();});
   $app.querySelectorAll('.cprice').forEach(inp=>inp.onchange=()=>{ const l=state.cart[inp.dataset.k]; const p=PRODUCTS.find(x=>x.id===l.pid); let v=+inp.value; if(!v||v<p.price) v=p.price; l.custom=v; rerender(); });
-  setMain(items.length?`Оформить · ${rub(cartTotal())}`:'', ()=>go(checkout));
+  const d=document.getElementById('delivery');
+  if(d){ d.onchange=()=>{ state.delivery=+(d.value||0); rerender(); }; d.onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); d.blur(); } }; }
+  setMain(items.length?`Оформить · ${rub(orderTotal())}`:'', ()=>go(checkout));
 }
 const METHODS={crypto:'Крипта (USDT/TON)',rf:'Карта РФ',intl:'Международная карта'};
 function checkout(){
@@ -207,14 +212,13 @@ function checkout(){
       state.addr=(document.getElementById('addr')||{}).value||'';
       const v=+(document.getElementById('delivery').value||0);
       state.delivery=v>0?v:0;
-      if(!state.delivery){ alert('Впишите стоимость доставки по ответу мастера'); return; }
+      if(!state.delivery){ alert('Впишите стоимость доставки по ответу мастера (в корзине или здесь)'); return; }
       const m=document.querySelector('input[name=pm]:checked').value; go(()=>pay(m));
     });
   };
   $app.innerHTML=`<div class="p"><h2>Оформление</h2>
   <p>Товары: <b id="sumGoods">${rub(cartTotal())}</b></p>
-  <label>Доставка, ₽ (по ответу мастера)<input id="delivery" type="number" min="0" step="50" inputmode="numeric" placeholder="сумма доставки" value="${state.delivery||''}"></label>
-  <p class="hint">Сначала уточните доставку у мастера, затем впишите сумму — она добавится к оплате.</p>
+  <label>Доставка, ₽<input id="delivery" type="number" min="0" step="50" inputmode="numeric" placeholder="из корзины или по ответу мастера" value="${state.delivery||''}"></label>
   <p>Доставка: <b id="sumDel">${state.delivery?rub(state.delivery):'—'}</b><br>Итого к оплате: <b id="sumTot">${rub(orderTotal())}</b></p>
   <label>Имя / контакт<input id="contact" placeholder="@username или телефон" value="${esc(defContact)}"></label>
   <label>Адрес доставки<textarea id="addr" rows="2" placeholder="Страна, город, адрес">${esc(state.addr||'')}</textarea></label>
