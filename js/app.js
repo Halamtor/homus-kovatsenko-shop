@@ -34,7 +34,7 @@ function add(pid,opts){ const k=pid+'|'+opts.slice().sort().join(','); state.car
 // ---- Экраны ----
 function catalog(){
   state.stack=[catalog]; if(inTG) tg.BackButton.hide();
-  const cats=['Все','Варганы','Опции','Фото','Магазин в VK'];
+  const cats=['Все','Варганы','Опции','Магазин в VK'];
   const isVK=state.cat==='Магазин в VK';
   const q=state.q.toLowerCase();
   const showP = !isVK&&state.cat!=='Опции', showO = !isVK&&state.cat!=='Варганы';
@@ -47,7 +47,7 @@ function catalog(){
   ${isVK?`<div class="p" style="text-align:center"><h3>Магазин в VK</h3><p class="hint">Наш магазин в сообществе «Хомус Коваценко» во ВКонтакте</p><a class="btn" href="${VK_SHOP}" data-href="${VK_SHOP}">Перейти в магазин в VK</a></div>`:''}
   ${!isVK&&!list.length&&!olist.length?'<p class="hint p">Ничего не найдено</p>':''}`;
   const qi=document.getElementById('q'); qi.oninput=e=>{state.q=e.target.value; catalog(); const n=document.getElementById('q'); n.focus(); n.setSelectionRange(n.value.length,n.value.length);};
-  $app.querySelectorAll('.chip').forEach(b=>b.onclick=()=>{ if(b.dataset.c==='Фото') return go(albumsList); state.cat=b.dataset.c;catalog();});
+  $app.querySelectorAll('.chip').forEach(b=>b.onclick=()=>{ state.cat=b.dataset.c;catalog();});
   $app.querySelectorAll('.item[data-id]').forEach(el=>el.onclick=()=>go(()=>product(+el.dataset.id)));
   $app.querySelectorAll('.item[data-o]').forEach(el=>el.onclick=()=>go(()=>option(el.dataset.o)));
   const n=cartTotal(); setMain(n?`Корзина · ${rub(n)}`:'', ()=>go(cart));
@@ -118,7 +118,7 @@ function product(id){
   $app.innerHTML=`<div class="p">${gallery(p.imgs)}
   <h2>${esc(p.name)}</h2><div class="price" style="font-size:22px">${rub(p.price)}</div>
   ${listenBtn('p',p)}${albumBtns('p',id)}${buyVK(p.vk)}${supportBtn(p.name)}
-  <h3>Опции</h3>${OPTIONS.map(o=>`<label class="pm"><input type="checkbox" value="${o.id}" style="width:auto"> ${esc(oname(o))} <b>+${rub(o.price)}</b></label>`).join('')}
+  <h3>Опции</h3>${OPTIONS.map(o=>`<label class="pm"><input type="checkbox" value="${o.id}" style="width:auto"> ${esc(oname(o))} <b>+${rub(o.price)}</b></label>${optExamples(o.id)}`).join('')}
   <h3>Описание</h3><div class="desc">${richText(p.desc)}</div>${backLink()}</div>`;
   bindBack(); bindAlbBtns(); const lb=document.getElementById('listen'); if(lb) lb.onclick=()=>go(()=>listen('p',id));
   const total=()=>p.price+[...sel].reduce((s,o)=>s+optById(o).price,0);
@@ -137,7 +137,7 @@ function info(){
   <p>🛍 <a href="${VK_SHOP}" data-href="${VK_SHOP}">Купить в VK — магазин сообщества</a></p>
   <p>📣 <a href="${CHANNEL}" data-href="${CHANNEL}">Telegram-канал — t.me/homuskovatsenko</a></p>
   <p>✉️ <a href="${MASTER}" data-href="${MASTER}">Написать мастеру — @vasilykovatsenko</a></p>
-  <p>💬 <a href="${c.vk}" data-href="${c.vk}">Сообщество VK — vk.com/vargan64</a></p>${albumMenu()}${backLink()}</div>`;
+  <p>💬 <a href="${c.vk}" data-href="${c.vk}">Сообщество VK — vk.com/vargan64</a></p>${backLink()}</div>`;
   bindBack(); bindAlbBtns(); setMain('Перейти в каталог', catalog);
 }
 function cart(){

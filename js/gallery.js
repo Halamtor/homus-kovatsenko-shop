@@ -3,7 +3,8 @@ const albById = id => ALBUMS.find(a=>a.id===id);
 const albSrc = (a,f,thumb) => `img/albums/${a.id}/${thumb?'t/':''}${f}`;
 // к каким товарам/опциям привязаны альбомы: товар 6 — «Варган 2.0 с натуральными камнями», o2 — «Гравировка на чехле»
 const ALB_LINKS = {p:{6:['stones']}, o:{o2:['engraving']}};
-const albumBtns = (kind,id) => ((ALB_LINKS[kind]||{})[id]||[]).map(k=>{const a=albById(k); return `<button class="btn sec" data-alb="${k}">🖼 Примеры: «${a.name}» (${a.photos.length} фото)</button>`;}).join('');
+const albumBtns = (kind,id) => ((ALB_LINKS[kind]||{})[id]||[]).map(k=>{const a=albById(k); return `<button class="btn sec" data-alb="${k}">🖼 Смотреть примеры (${a.photos.length} фото)</button>`;}).join('');
+const optExamples = oid => ((ALB_LINKS.o||{})[oid]||[]).filter(albById).map(k=>`<button class="btn sec exbtn" data-alb="${k}">🖼 Смотреть примеры (${albById(k).photos.length} фото)</button>`).join('');
 const albumMenu = () => `<h3>Фотоальбомы</h3>${ALBUMS.map(a=>`<button class="btn sec" data-alb="${a.id}">🖼 ${esc(a.name)} · ${a.photos.length} фото</button>`).join('')}`;
 function bindAlbBtns(){ $app.querySelectorAll('[data-alb]').forEach(b=>b.onclick=()=>go(()=>album(b.dataset.alb))); }
 function albumsList(){
