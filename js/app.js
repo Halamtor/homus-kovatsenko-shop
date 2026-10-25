@@ -118,7 +118,7 @@ function product(id){
   $app.innerHTML=`<div class="p">${gallery(p.imgs)}
   <h2>${esc(p.name)}</h2><div class="price" style="font-size:22px">${rub(p.price)}</div>
   ${listenBtn('p',p)}${albumBtns('p',id)}${buyVK(p.vk)}${supportBtn(p.name)}
-  <h3>Опции</h3>${OPTIONS.map(o=>`<label class="pm"><input type="checkbox" value="${o.id}" style="width:auto"> ${esc(oname(o))} <b>+${rub(o.price)}</b></label>${optExamples(o.id)}`).join('')}
+  <h3>Опции</h3><p class="hint" style="margin:0 0 8px">Выберите дополнения к заказу, если нужны: они добавятся к цене варгана.</p>${OPTIONS.map(o=>`<label class="pm"><input type="checkbox" value="${o.id}" style="width:auto"> ${esc(oname(o))} <b>+${rub(o.price)}</b></label>${optExamples(o.id)}`).join('')}
   <h3>Описание</h3><div class="desc">${richText(p.desc)}</div>${backLink()}</div>`;
   bindBack(); bindAlbBtns(); const lb=document.getElementById('listen'); if(lb) lb.onclick=()=>go(()=>listen('p',id));
   const total=()=>p.price+[...sel].reduce((s,o)=>s+optById(o).price,0);
