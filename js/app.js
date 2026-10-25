@@ -34,16 +34,18 @@ function add(pid,opts){ const k=pid+'|'+opts.slice().sort().join(','); state.car
 // ---- Экраны ----
 function catalog(){
   state.stack=[catalog]; if(inTG) tg.BackButton.hide();
-  const cats=['Все','Варганы','Опции'];
+  const cats=['Все','Варганы','Опции','Магазин в VK'];
+  const isVK=state.cat==='Магазин в VK';
   const q=state.q.toLowerCase();
-  const showP = state.cat!=='Опции', showO = state.cat!=='Варганы';
+  const showP = !isVK&&state.cat!=='Опции', showO = !isVK&&state.cat!=='Варганы';
   const list=showP?PRODUCTS.filter(p=>p.name.toLowerCase().includes(q)):[];
   const olist=showO?OPTIONS.filter(o=>o.name.toLowerCase().includes(q)):[];
   $app.innerHTML=`<a class="vkbanner" href="${VK_SHOP}" data-href="${VK_SHOP}">🛍 Купить в VK-магазине — vk.com/market-73004917 ›</a><input class="search" id="q" placeholder="Поиск" value="${esc(state.q)}">
   <div class="chips">${cats.map(c=>`<button class="chip ${c===state.cat?'on':''}" data-c="${c}">${c}</button>`).join('')}</div>
   <div class="grid">${list.map(p=>`<div class="item" data-id="${p.id}"><img src="${p.imgs[0]}" alt="" loading="lazy"><div class="t">${esc(p.name)}<div class="price">${rub(p.price)}</div></div></div>`).join('')}</div>
   ${olist.length?`<h3 class="p" style="padding-bottom:0">Опции к варгану</h3><div class="grid">${olist.map(o=>`<div class="item opt" data-o="${o.id}"><img src="${o.imgs[0]}" alt="" loading="lazy"><div class="t">${esc(oname(o))}<div class="price">+${rub(o.price)}</div><div class="tag">добавляется к варгану</div></div></div>`).join('')}</div>`:''}
-  ${!list.length&&!olist.length?'<p class="hint p">Ничего не найдено</p>':''}`;
+  ${isVK?`<div class="p" style="text-align:center"><h3>Магазин в VK</h3><p class="hint">Наш магазин в сообществе «Хомус Коваценко» во ВКонтакте</p><a class="btn" href="${VK_SHOP}" data-href="${VK_SHOP}">Перейти в магазин в VK</a></div>`:''}
+  ${!isVK&&!list.length&&!olist.length?'<p class="hint p">Ничего не найдено</p>':''}`;
   const qi=document.getElementById('q'); qi.oninput=e=>{state.q=e.target.value; catalog(); const n=document.getElementById('q'); n.focus(); n.setSelectionRange(n.value.length,n.value.length);};
   $app.querySelectorAll('.chip').forEach(b=>b.onclick=()=>{state.cat=b.dataset.c;catalog();});
   $app.querySelectorAll('.item[data-id]').forEach(el=>el.onclick=()=>go(()=>product(+el.dataset.id)));
