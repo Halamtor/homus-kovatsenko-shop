@@ -150,12 +150,13 @@ function info(){
   <p>🛍 <a href="${VK_SHOP}" data-href="${VK_SHOP}">Купить в VK — магазин сообщества</a></p>
   <p>📣 <a href="${CHANNEL}" data-href="${CHANNEL}">Telegram-канал — t.me/homuskovatsenko</a></p>
   <p>✉️ <a href="${MASTER}" data-href="${MASTER}">Написать мастеру — @vasilykovatsenko</a></p>
-  <p>💬 <a href="${c.vk}" data-href="${c.vk}">Сообщество VK — vk.com/vargan64</a></p>${backLink()}</div>`;
+  <p>💬 <a href="${c.vk}" data-href="${c.vk}">Сообщество VK — vk.com/vargan64</a></p>
+  <p class="hint">Доставку и стоимость согласуем при заказе.</p>${backLink()}</div>`;
   bindBack(); bindAlbBtns(); setMain('Перейти в каталог', catalog);
 }
 function cart(){
   const items=Object.entries(state.cart);
-  $app.innerHTML=`<div class="p"><h2>Корзина</h2>${items.length?items.map(([k,l])=>{const p=PRODUCTS.find(x=>x.id===l.pid);return `<div class="row"><img src="${p.imgs[0]}"><div style="flex:1">${esc(p.name)}
+  $app.innerHTML=`<div class="p"><h2>Корзина</h2><p class="hint">Доставку и стоимость согласуем при заказе.</p>${items.length?items.map(([k,l])=>{const p=PRODUCTS.find(x=>x.id===l.pid);return `<div class="row"><img src="${p.imgs[0]}"><div style="flex:1">${esc(p.name)}
    ${OPTIONS.map(o=>`<label class="hint" style="display:block"><input type="checkbox" class="co" data-k="${k}" value="${o.id}" ${l.opts.includes(o.id)?'checked':''} style="width:auto;margin:2px 4px 0 0">${esc(oname(o))} +${rub(o.price)}</label>`).join('')}
    <div class="price">${rub(lineUnit(l)*l.q)}</div></div>
   <div class="qty"><button data-d="-1" data-k="${k}">−</button> ${l.q} <button data-d="1" data-k="${k}">+</button></div></div>`}).join('')+`<h3>Итого: ${rub(cartTotal())}</h3>`:'<p class="hint">Корзина пуста</p>'}${backLink()}</div>`;
