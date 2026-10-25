@@ -26,11 +26,13 @@ function bindBack(){ const b=document.getElementById('back'); if(b) b.onclick=on
 function haptic(){ try{ inTG && tg.HapticFeedback.impactOccurred('light'); }catch(e){} }
 
 const optById = id => OPTIONS.find(o=>o.id===id);
-const lineUnit = l => PRODUCTS.find(p=>p.id===l.pid).price + l.opts.reduce((s,o)=>s+optById(o).price,0);
+const basePrice = p => p.price;
+const priceLabel = p => p.customPrice?('от '+rub(p.price)):rub(p.price);
+const lineUnit = l => { const p=PRODUCTS.find(x=>x.id===l.pid); const base=(l.custom!=null&&l.custom!=='')?+l.custom:p.price; return base + l.opts.reduce((s,o)=>s+optById(o).price,0); };
 const cartItems = () => Object.values(state.cart).map(l=>({...l,p:PRODUCTS.find(x=>x.id===l.pid)}));
 const cartTotal = () => cartItems().reduce((s,l)=>s+lineUnit(l)*l.q,0);
 function updCount(){ document.getElementById('cartCount').textContent = cartItems().reduce((a,l)=>a+l.q,0); }
-function add(pid,opts){ const k=pid+'|'+opts.slice().sort().join(','); state.cart[k]=state.cart[k]||{pid,opts:opts.slice(),q:0}; state.cart[k].q++; updCount(); haptic(); }
+function add(pid,opts,custom){ const k=pid+'|'+opts.slice().sort().join(','); state.cart[k]=state.cart[k]||{pid,opts:opts.slice(),q:0}; state.cart[k].q++; if(custom!=null&&custom!=='') state.cart[k].custom=+custom; updCount(); haptic(); }
 // ---- Экраны ----
 function catalog(){
   state.stack=[catalog]; if(inTG) tg.BackButton.hide();
@@ -42,7 +44,7 @@ function catalog(){
   const olist=showO?OPTIONS.filter(o=>o.name.toLowerCase().includes(q)):[];
   $app.innerHTML=`<a class="vkbanner" href="${VK_SHOP}" data-href="${VK_SHOP}">🛍 Купить в VK-магазине — vk.com/market-73004917 ›</a><a class="vkbanner tgbanner" href="${CHANNEL}" data-href="${CHANNEL}">📣 Наш Telegram-канал — новости и звучание ›</a><input class="search" id="q" placeholder="Поиск" value="${esc(state.q)}">
   <div class="chips">${cats.map(c=>`<button class="chip ${c===state.cat?'on':''}" data-c="${c}">${c}</button>`).join('')}</div>
-  <div class="grid">${list.map(p=>`<div class="item" data-id="${p.id}"><img src="${p.imgs[0]}" alt="" loading="lazy"><div class="t">${esc(p.name)}<div class="price">${rub(p.price)}</div></div></div>`).join('')}</div>
+  <div class="grid">${list.map(p=>`<div class="item" data-id="${p.id}"><img src="${p.imgs[0]}" alt="" loading="lazy"><div class="t">${esc(p.name)}<div class="price">${priceLabel(p)}</div></div></div>`).join('')}</div>
   ${olist.length?`<h3 class="p" style="padding-bottom:0">Опции к варгану</h3><div class="grid">${olist.map(o=>`<div class="item opt" data-o="${o.id}"><img src="${o.imgs[0]}" alt="" loading="lazy"><div class="t">${esc(oname(o))}<div class="price">+${rub(o.price)}</div><div class="tag">добавляется к варгану</div></div></div>`).join('')}</div>`:''}
   ${isVK?`<div class="p" style="text-align:center"><h3>Магазин в VK</h3><p class="hint">Наш магазин в сообществе «Хомус Коваценко» во ВКонтакте</p><a class="btn" href="${VK_SHOP}" data-href="${VK_SHOP}">Перейти в магазин в VK</a></div>`:''}
   ${!isVK&&!list.length&&!olist.length?'<p class="hint p">Ничего не найдено</p>':''}`;
@@ -137,15 +139,26 @@ function option(id){
 }
 function product(id){
   const p=PRODUCTS.find(x=>x.id===id); const sel=new Set();
+  const priceBlock=p.customPrice
+    ?`<div class="price" style="font-size:22px">от ${rub(p.price)}</div>
+  <label>Сумма по ответу мастера, ₽<input id="customPrice" type="number" min="${p.price}" step="100" inputmode="numeric" placeholder="например ${p.price}" value="${p.price}"></label>
+  <p class="hint">Цена зависит от камня. Уточните у мастера и впишите итоговую сумму — она уйдёт в корзину и к оплате.</p>`
+    :`<div class="price" style="font-size:22px">${rub(p.price)}</div>`;
   $app.innerHTML=`<div class="p">${gallery(p.imgs)}
-  <h2>${esc(p.name)}</h2><div class="price" style="font-size:22px">${rub(p.price)}</div>
+  <h2>${esc(p.name)}</h2>${priceBlock}
   ${listenBtn('p',p)}${albumBtns('p',id)}${buyVK(p.vk)}${supportBtn(p.name)}
   <h3>Опции</h3><p class="hint" style="margin:0 0 8px">Выберите дополнения к заказу, если нужны: они добавятся к цене варгана.</p>${OPTIONS.map(o=>`<label class="pm"><input type="checkbox" value="${o.id}" style="width:auto"> ${esc(oname(o))} <b>+${rub(o.price)}</b></label>${optExamples(o.id)}`).join('')}
   <h3>Описание</h3><div class="desc">${descOf(p)}</div>${backLink()}</div>`;
   bindBack(); bindAlbBtns(); const lb=document.getElementById('listen'); if(lb) lb.onclick=()=>go(()=>listen('p',id));
-  const total=()=>p.price+[...sel].reduce((s,o)=>s+optById(o).price,0);
-  const upd=()=>setMain(`В корзину · ${rub(total())}`, ()=>{add(id,[...sel]); setMain('В корзине ✓ · перейти', ()=>go(cart));});
+  const base=()=>{ if(!p.customPrice) return p.price; const v=+(document.getElementById('customPrice').value||0); return v; };
+  const total=()=>base()+[...sel].reduce((s,o)=>s+optById(o).price,0);
+  const upd=()=>setMain(`В корзину · ${rub(total())}`, ()=>{
+    if(p.customPrice){ const v=base(); if(!v||v<p.price){ alert('Впишите сумму от '+rub(p.price)+' по ответу мастера'); return; } add(id,[...sel],v); }
+    else add(id,[...sel]);
+    setMain('В корзине ✓ · перейти', ()=>go(cart));
+  });
   $app.querySelectorAll('input[type=checkbox]').forEach(c=>c.onchange=()=>{c.checked?sel.add(c.value):sel.delete(c.value); upd();});
+  const cp=document.getElementById('customPrice'); if(cp) cp.oninput=upd;
   upd();
 }
 const COMMUNITY={name:'ВАРГАН | ХОМУС | ВАСИЛИЯ КОВАЦЕНКО',vk:'https://vk.com/vargan64',phone:'+7 958 551-67-40',site:'https://shkolavargana.ru',
@@ -167,6 +180,7 @@ function cart(){
   const items=Object.entries(state.cart);
   $app.innerHTML=`<div class="p"><h2>Корзина</h2><p class="hint">Доставку и стоимость согласуем при заказе.</p>${items.length?items.map(([k,l])=>{const p=PRODUCTS.find(x=>x.id===l.pid);return `<div class="row"><img src="${p.imgs[0]}"><div style="flex:1">${esc(p.name)}
    ${OPTIONS.map(o=>`<label class="hint" style="display:block"><input type="checkbox" class="co" data-k="${k}" value="${o.id}" ${l.opts.includes(o.id)?'checked':''} style="width:auto;margin:2px 4px 0 0">${esc(oname(o))} +${rub(o.price)}</label>`).join('')}
+   ${p.customPrice?`<label class="hint" style="display:block;margin-top:6px">Сумма варгана, ₽<input class="cprice" data-k="${k}" type="number" min="${p.price}" step="100" inputmode="numeric" value="${l.custom!=null?l.custom:p.price}"></label>`:''}
    <div class="price">${rub(lineUnit(l)*l.q)}</div></div>
   <div class="qty"><button data-d="-1" data-k="${k}">−</button> ${l.q} <button data-d="1" data-k="${k}">+</button></div></div>`}).join('')+`<h3>Итого: ${rub(cartTotal())}</h3>`:'<p class="hint">Корзина пуста</p>'}${backLink()}</div>`;
   bindBack();
@@ -174,7 +188,9 @@ function cart(){
   $app.querySelectorAll('.qty button').forEach(b=>b.onclick=()=>{const k=b.dataset.k; state.cart[k].q+= +b.dataset.d; if(state.cart[k].q<=0) delete state.cart[k]; rerender();});
   $app.querySelectorAll('.co').forEach(c=>c.onchange=()=>{const l=state.cart[c.dataset.k]; delete state.cart[c.dataset.k];
     const opts=c.checked?[...l.opts,c.value]:l.opts.filter(x=>x!==c.value); const k=l.pid+'|'+opts.slice().sort().join(',');
-    if(state.cart[k]) state.cart[k].q+=l.q; else state.cart[k]={pid:l.pid,opts,q:l.q}; rerender();});
+    if(state.cart[k]){ state.cart[k].q+=l.q; if(l.custom!=null) state.cart[k].custom=l.custom; }
+    else state.cart[k]={pid:l.pid,opts,q:l.q,custom:l.custom}; rerender();});
+  $app.querySelectorAll('.cprice').forEach(inp=>inp.onchange=()=>{ const l=state.cart[inp.dataset.k]; const p=PRODUCTS.find(x=>x.id===l.pid); let v=+inp.value; if(!v||v<p.price) v=p.price; l.custom=v; rerender(); });
   setMain(items.length?`Оформить · ${rub(cartTotal())}`:'', ()=>go(checkout));
 }
 const METHODS={crypto:'Крипта (USDT/TON)',rf:'Карта РФ',intl:'Международная карта'};
