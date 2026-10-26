@@ -317,13 +317,31 @@ async function sendOrder(order){
   try{
     const r=await fetch(ORDER_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     const j=await r.json().catch(()=>({}));
-    return {ok:!!j.ok, error:j.error||('HTTP '+r.status)};
+    // ok:true even when Telegram not configured — order is saved in Worker DB
+    return {ok:!!j.ok, telegram:!!j.telegram, error:j.error||(j.ok?'':('HTTP '+r.status)), saved:!!j.saved};
   }catch(e){ return {ok:false, error:String(e)}; }
+}
+function readReceiptFile(file){
+  return new Promise((resolve,reject)=>{
+    if(!file) return resolve(null);
+    if(file.size>5*1024*1024) return reject(new Error('Файл больше 5 МБ — сожмите скрин или PDF'));
+    const ok=/^(image\/(jpeg|png|webp|gif)|application\/pdf)$/i.test(file.type)||/\.(jpe?g|png|webp|gif|pdf)$/i.test(file.name||'');
+    if(!ok) return reject(new Error('Нужен скрин (JPG/PNG) или PDF'));
+    const fr=new FileReader();
+    fr.onload=()=>{
+      const dataUrl=String(fr.result||'');
+      const i=dataUrl.indexOf(',');
+      const b64=i>=0?dataUrl.slice(i+1):'';
+      resolve({data:b64, mime:file.type||'application/octet-stream', filename:file.name||'receipt.jpg'});
+    };
+    fr.onerror=()=>reject(new Error('Не удалось прочитать файл'));
+    fr.readAsDataURL(file);
+  });
 }
 
 function payHtml(m, order){
   const p=PAY[m]||{};
-  const paidLabel=order.paid?'Оплачено':'Ожидает оплату';
+  const paidLabel=order.paid?'Оплачено':'Создана · ждёт оплату';
   const head=`<div class="p"><h2>${esc(METHODS[m])}</h2>
   <div class="order-box"><div>Номер заявки: <b id="orderIdLbl">${esc(order.orderId)}</b></div>
   <div>Статус: <b id="paidLbl">${paidLabel}</b></div>
@@ -345,12 +363,20 @@ function payHtml(m, order){
     <div id="copyNote" class="hint"></div>
     <p class="hint">Временные цифры — позже заменим на реальные реквизиты мастера.</p>`;
   }
-  return head+body+`<p class="hint">После перевода нажмите «Я оплатил». Заявка уходит мастеру.</p>
-  <div id="orderStatus" class="hint">Отправляем заявку…</div>${backLink()}</div>`;
+  const receipt=`<div class="receipt-box">
+    <label class="receipt-label">Прикрепить скрин / чек оплаты
+      <input type="file" id="receiptFile" accept="image/*,application/pdf,.jpg,.jpeg,.png,.webp,.gif,.pdf">
+    </label>
+    <div id="receiptName" class="hint">Файл не выбран</div>
+  </div>
+  <p class="hint">После перевода прикрепите скрин или PDF и нажмите «Я оплатил». Мастер получит заявку и чек.</p>
+  <div id="orderStatus" class="hint">Создаём заявку…</div>`;
+  return head+body+receipt+`${backLink()}</div>`;
 }
 
 function pay(m){
   const order=buildOrder(m);
+  let receiptFile=null;
   $app.innerHTML=payHtml(m, order); bindBack(); setMain('',null);
   const copyBtn=document.getElementById('copyPay');
   if(copyBtn){
@@ -360,20 +386,44 @@ function pay(m){
       copyText(t);
     };
   }
+  const fileInp=document.getElementById('receiptFile');
+  const nameEl=document.getElementById('receiptName');
+  if(fileInp){
+    fileInp.onchange=()=>{
+      receiptFile=fileInp.files&&fileInp.files[0]?fileInp.files[0]:null;
+      if(nameEl) nameEl.textContent=receiptFile?('Выбрано: '+receiptFile.name):'Файл не выбран';
+    };
+  }
   sendOrder(order).then(r=>{
     const el=document.getElementById('orderStatus');
-    if(el) el.textContent=r.ok?'Заявка отправлена мастеру.':'Заявку пока не удалось отправить ('+(r.error||'')+'). Можно оплатить переводом — мастер увидит заявку позже.';
-    setMain('Я оплатил', ()=>{
+    if(el){
+      if(r.ok){
+        el.textContent=r.telegram
+          ?('Шаг 1: заявка '+order.orderId+' создана — мастер уведомлён, ждёт оплату.')
+          :('Шаг 1: заявка '+order.orderId+' сохранена. Telegram мастеру пока не настроен — после оплаты всё равно отметьте «Я оплатил».');
+      } else {
+        el.textContent='Заявку пока не удалось создать ('+(r.error||'')+'). Можно оплатить переводом — повторите позже.';
+      }
+    }
+    setMain('Я оплатил', async ()=>{
+      if(!receiptFile){ alert('Прикрепите скрин или документ оплаты'); if(fileInp) fileInp.click(); return; }
+      let receipt;
+      try{ receipt=await readReceiptFile(receiptFile); }
+      catch(e){ alert(e.message||String(e)); return; }
       order.paid=true;
+      order.hasReceipt=true;
+      order.receipt=receipt;
       const pl=document.getElementById('paidLbl'); if(pl) pl.textContent='Оплачено';
+      const st=document.getElementById('orderStatus'); if(st) st.textContent='Шаг 2: отправляем оплату и чек…';
       setMain('Отправляем…', null);
-      sendOrder(order).finally(()=>{
-        $app.innerHTML=`<div class="p"><h2>Спасибо!</h2>
-        <div class="order-box"><div>Номер заявки: <b>${esc(order.orderId)}</b></div>
-        <div>Статус: <b>Оплачено</b></div></div>
-        <p>Мастер получил заявку и отметку об оплате. Свяжется по контакту <b>${esc(order.contact)}</b>.</p>${backLink()}</div>`;
-        state.cart={}; state.delivery=0; updCount(); bindBack(); setMain('В каталог', catalog);
-      });
+      const r2=await sendOrder(order);
+      $app.innerHTML=`<div class="p"><h2>Спасибо!</h2>
+      <div class="order-box"><div>Номер заявки: <b>${esc(order.orderId)}</b></div>
+      <div>Статус: <b>Оплачено</b></div>
+      <div>Чек: <b>приложен</b></div></div>
+      <p>${r2.ok?(r2.telegram?'Мастер получил заявку, отметку об оплате и чек.':'Заявка и чек сохранены. Мастер увидит их, когда подключат уведомления.'):('Отметку об оплате не удалось отправить ('+esc(r2.error||'')+'). Сохраните номер заявки и напишите мастеру.')}</p>
+      <p>Свяжется по контакту <b>${esc(order.contact)}</b>.</p>${backLink()}</div>`;
+      state.cart={}; state.delivery=0; updCount(); bindBack(); setMain('В каталог', catalog);
     });
   });
 }
