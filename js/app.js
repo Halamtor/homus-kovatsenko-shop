@@ -3,7 +3,7 @@ const tg = window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.i
 const inTG = !!(tg && tg.platform && tg.platform !== 'unknown');
 if (tg) { try { tg.ready(); tg.expand(); } catch (e) {} }
 
-const state = {cat:'Варганы', q:'', cart:{}, stack:[], delivery:0, contact:'', addr:''};
+const state = {cat:'Варганы', q:'', cart:{}, stack:[], delivery:0, contact:'', ship:{country:'',city:'',zip:'',firstName:'',lastName:'',patronymic:'',phone:''}};
 const $app = document.getElementById('app');
 const fb = document.getElementById('fallbackMain');
 let mainHandler = null;
@@ -222,29 +222,57 @@ function cart(){
   setMain(items.length?((state.delivery>=1)?`К оплате · ${rub(orderTotal())}`:'Впишите доставку'):'', items.length?goPay:null);
 }
 const METHODS={rf:'Карта РФ',intl:'Международная Visa',crypto:'Крипта (USDT/TON)'};
-// Реквизиты: заполним после ответа мастера. Пустые строки → просим написать мастеру.
+// Временные реквизиты (заглушка). Позже заменим на реальные от мастера.
 const PAY={
-  rf:{hint:'Перевод на карту РФ', lines:[]},
-  intl:{hint:'Перевод на международную Visa', lines:[]},
-  crypto:{hint:'Перевод USDT (TRC-20) или TON', lines:[]}
+  rf:{hint:'Перевод на карту РФ (временные реквизиты)', card:'2200 7001 2345 6789', who:'ВРЕМЕННЫЕ РЕКВИЗИТЫ', bank:'Сбербанк'},
+  intl:{hint:'Перевод на международную Visa (временные реквизиты)', card:'4111 1111 2222 3333', who:'TEMP PLACEHOLDER', bank:'Visa'},
+  crypto:{hint:'USDT · сеть TRC20 (временный адрес)', address:'TXk9mP2wQr7nL4vHj8sFd6cYb1aGe3uZqR', network:'TRC20'}
 };
 const ORDER_API='https://homus-bot.homus-kovatsenko.workers.dev/order';
 
+function genOrderId(){
+  const n=Math.floor(100000+Math.random()*900000);
+  return 'HK-'+n;
+}
+function shipLine(s){
+  const fio=[s.lastName,s.firstName,s.patronymic].filter(Boolean).join(' ');
+  return [fio, s.phone, [s.country,s.city,s.zip].filter(Boolean).join(', ')].filter(Boolean).join(' · ');
+}
+function val(id){ const el=document.getElementById(id); return el?(el.value||'').trim():''; }
+function copyText(t){
+  const done=()=>{ try{ inTG && tg.HapticFeedback.notificationOccurred('success'); }catch(e){} const n=document.getElementById('copyNote'); if(n){ n.textContent='Скопировано'; setTimeout(()=>{ if(n) n.textContent=''; },1500);} };
+  if(navigator.clipboard&&navigator.clipboard.writeText) return navigator.clipboard.writeText(t).then(done).catch(()=>fallbackCopy(t,done));
+  return fallbackCopy(t,done);
+}
+function fallbackCopy(t,done){
+  const ta=document.createElement('textarea'); ta.value=t; document.body.appendChild(ta); ta.select();
+  try{ document.execCommand('copy'); }catch(e){}
+  ta.remove(); done();
+}
+
 function checkout(){
   const defContact=state.contact||((inTG&&tg.initDataUnsafe.user&&tg.initDataUnsafe.user.username)?'@'+tg.initDataUnsafe.user.username:'');
+  const s=state.ship||{};
   const paint=()=>{
     const goods=cartTotal(), del=state.delivery||0, tot=goods+del;
     document.getElementById('sumGoods').textContent=rub(goods);
     document.getElementById('sumDel').textContent=del?rub(del):'—';
     document.getElementById('sumTot').textContent=rub(tot);
     setMain(`К оплате · ${rub(tot)}`, ()=>{
-      state.contact=(document.getElementById('contact')||{}).value||'';
-      state.addr=(document.getElementById('addr')||{}).value||'';
+      state.contact=val('contact');
+      state.ship={
+        country:val('shipCountry'), city:val('shipCity'), zip:val('shipZip'),
+        firstName:val('shipFirst'), lastName:val('shipLast'), patronymic:val('shipPatr'), phone:val('shipPhone')
+      };
       const v=+(document.getElementById('delivery').value||0);
       state.delivery=v>0?v:0;
       if(!(state.delivery>=1)){ alert('Впишите стоимость доставки — уточните у мастера'); return; }
-      if(!state.contact.trim()){ alert('Укажите контакт'); return; }
-      if(!state.addr.trim()){ alert('Укажите адрес доставки'); return; }
+      if(!state.contact){ alert('Укажите контакт (Telegram @)'); return; }
+      if(!state.ship.country){ alert('Укажите страну'); return; }
+      if(!state.ship.city){ alert('Укажите город'); return; }
+      if(!state.ship.firstName){ alert('Укажите имя получателя'); return; }
+      if(!state.ship.lastName){ alert('Укажите фамилию получателя'); return; }
+      if(!state.ship.phone){ alert('Укажите номер телефона'); return; }
       const m=document.querySelector('input[name=pm]:checked').value; go(()=>pay(m));
     });
   };
@@ -252,21 +280,35 @@ function checkout(){
   <p>Товары: <b id="sumGoods">${rub(cartTotal())}</b></p>
   <label>Доставка, ₽<input id="delivery" type="number" min="1" step="1" inputmode="numeric" placeholder="сумма доставки" value="${state.delivery||''}"></label>
   <p>Доставка: <b id="sumDel">${state.delivery?rub(state.delivery):'—'}</b><br>Итого к оплате: <b id="sumTot">${rub(orderTotal())}</b></p>
-  <label>Имя / контакт<input id="contact" placeholder="@username или телефон" value="${esc(defContact)}"></label>
-  <label>Адрес доставки<textarea id="addr" rows="2" placeholder="Страна, город, адрес">${esc(state.addr||'')}</textarea></label>
+  <label>Telegram-контакт<input id="contact" placeholder="@username" value="${esc(defContact)}"></label>
+  <h3>Доставка</h3>
+  <label>Страна<input id="shipCountry" placeholder="Россия / другая страна" value="${esc(s.country||'')}"></label>
+  <label>Город<input id="shipCity" placeholder="Город" value="${esc(s.city||'')}"></label>
+  <label>Индекс<input id="shipZip" placeholder="Индекс / ZIP" inputmode="numeric" value="${esc(s.zip||'')}"></label>
+  <div class="form-grid">
+    <label>Фамилия<input id="shipLast" placeholder="Фамилия" value="${esc(s.lastName||'')}"></label>
+    <label>Имя<input id="shipFirst" placeholder="Имя" value="${esc(s.firstName||'')}"></label>
+  </div>
+  <label>Отчество<input id="shipPatr" placeholder="Отчество (если есть)" value="${esc(s.patronymic||'')}"></label>
+  <label>Телефон<input id="shipPhone" placeholder="+7 …" type="tel" inputmode="tel" value="${esc(s.phone||'')}"></label>
   <h3>Способ оплаты</h3>${Object.entries(METHODS).map(([k,v],i)=>`<label class="pm"><input type="radio" name="pm" value="${k}" ${i?'':'checked'} style="width:auto"> ${v}</label>`).join('')}
-  <p class="hint">После оформления придёт инструкция перевода. Заявка уйдёт мастеру.</p>${backLink()}</div>`;
+  <p class="hint">Оплата переводом по реквизитам. Заявка уйдёт мастеру с номером.</p>${backLink()}</div>`;
   bindBack();
   const d=document.getElementById('delivery');
   d.oninput=()=>{ state.delivery=+(d.value||0); paint(); };
   paint();
 }
 
-function buildOrder(m){
+function buildOrder(m, orderId){
+  const s=state.ship||{};
   return {
+    orderId: orderId||genOrderId(),
     items:cartItems().map(i=>({id:i.p.id,name:i.p.name,options:i.opts.map(o=>oname(optById(o))),qty:i.q,unit:lineUnit(i)})),
     goods:cartTotal(), delivery:state.delivery||0, total:orderTotal(),
-    contact:state.contact, addr:state.addr, method:METHODS[m]||m, paid:false
+    contact:state.contact,
+    ship:Object.assign({},s),
+    addr:shipLine(s),
+    method:METHODS[m]||m, paid:false
   };
 }
 
@@ -281,27 +323,55 @@ async function sendOrder(order){
 
 function payHtml(m, order){
   const p=PAY[m]||{};
-  const lines=(p.lines&&p.lines.length)?p.lines.map(l=>`<div class="mock" style="margin:6px 0">${esc(l)}</div>`).join('')
-    :`<p class="hint">Реквизиты пока уточните у мастера — кнопка ниже. После перевода нажмите «Я оплатил».</p>
-      <a class="btn sec" href="${MASTER}?text=${encodeURIComponent('Здравствуйте! Нужны реквизиты для оплаты заказа на '+order.total+' ₽')}" data-href="${MASTER}?text=${encodeURIComponent('Здравствуйте! Нужны реквизиты для оплаты заказа на '+order.total+' ₽')}">Написать мастеру за реквизитами</a>`;
-  return `<div class="p"><h2>${esc(METHODS[m])}</h2>
-  <p>К оплате: <b>${rub(order.total)}</b></p>
-  <p class="hint">${esc(p.hint||'')}</p>
-  ${lines}
-  <p class="hint">Заявка уже уходит мастеру. После перевода нажмите «Я оплатил».</p>
+  const paidLabel=order.paid?'Оплачено':'Ожидает оплату';
+  const head=`<div class="p"><h2>${esc(METHODS[m])}</h2>
+  <div class="order-box"><div>Номер заявки: <b id="orderIdLbl">${esc(order.orderId)}</b></div>
+  <div>Статус: <b id="paidLbl">${paidLabel}</b></div>
+  <div>К оплате: <b>${rub(order.total)}</b></div></div>
+  <p class="hint">${esc(p.hint||'')}</p>`;
+  let body='';
+  if(m==='crypto'){
+    const addr=p.address||'';
+    const qr=`https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=8&data=${encodeURIComponent(addr)}`;
+    body=`<div class="qr-wrap"><img class="qr" src="${qr}" alt="QR"><div class="hint">Сканировать QR</div>
+    <div class="net-badge">Сеть: <b>TRC20</b></div></div>
+    <div class="mock" id="payReqs">${esc(addr)}</div>
+    <button type="button" class="btn sec" id="copyPay">Скопировать адрес</button>
+    <div id="copyNote" class="hint"></div>`;
+  } else {
+    const lines=[p.card?('Карта: '+p.card):'', p.who?('Получатель: '+p.who):'', p.bank?('Банк: '+p.bank):''].filter(Boolean);
+    body=`<div class="mock" id="payReqs">${lines.map(esc).join('<br>')}</div>
+    <button type="button" class="btn sec" id="copyPay">Скопировать реквизиты</button>
+    <div id="copyNote" class="hint"></div>
+    <p class="hint">Временные цифры — позже заменим на реальные реквизиты мастера.</p>`;
+  }
+  return head+body+`<p class="hint">После перевода нажмите «Я оплатил». Заявка уходит мастеру.</p>
   <div id="orderStatus" class="hint">Отправляем заявку…</div>${backLink()}</div>`;
 }
 
 function pay(m){
   const order=buildOrder(m);
   $app.innerHTML=payHtml(m, order); bindBack(); setMain('',null);
+  const copyBtn=document.getElementById('copyPay');
+  if(copyBtn){
+    copyBtn.onclick=()=>{
+      const p=PAY[m]||{};
+      const t=m==='crypto'?(p.address||''):( [p.card&&('Карта: '+p.card), p.who&&('Получатель: '+p.who), p.bank&&('Банк: '+p.bank)].filter(Boolean).join('\n') );
+      copyText(t);
+    };
+  }
   sendOrder(order).then(r=>{
     const el=document.getElementById('orderStatus');
-    if(el) el.textContent=r.ok?'Заявка отправлена мастеру.':'Заявку пока не удалось отправить ('+(r.error||'')+'). Напишите мастеру вручную — заказ всё равно можно оплатить переводом.';
+    if(el) el.textContent=r.ok?'Заявка отправлена мастеру.':'Заявку пока не удалось отправить ('+(r.error||'')+'). Можно оплатить переводом — мастер увидит заявку позже.';
     setMain('Я оплатил', ()=>{
       order.paid=true;
+      const pl=document.getElementById('paidLbl'); if(pl) pl.textContent='Оплачено';
+      setMain('Отправляем…', null);
       sendOrder(order).finally(()=>{
-        $app.innerHTML=`<div class="p"><h2>Спасибо!</h2><p>Мастер получил заявку${order.paid?' и отметку об оплате':''}. Он свяжется с вами по контакту <b>${esc(order.contact)}</b>.</p>${backLink()}</div>`;
+        $app.innerHTML=`<div class="p"><h2>Спасибо!</h2>
+        <div class="order-box"><div>Номер заявки: <b>${esc(order.orderId)}</b></div>
+        <div>Статус: <b>Оплачено</b></div></div>
+        <p>Мастер получил заявку и отметку об оплате. Свяжется по контакту <b>${esc(order.contact)}</b>.</p>${backLink()}</div>`;
         state.cart={}; state.delivery=0; updCount(); bindBack(); setMain('В каталог', catalog);
       });
     });

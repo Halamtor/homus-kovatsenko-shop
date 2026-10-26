@@ -29,3 +29,9 @@ a.seebtn{display:inline-block;width:auto;padding:6px 14px;margin:6px 0;font-size
 .bigtitle{font-size:28px;line-height:1.2;margin:8px 0 14px}
 details.arrow>summary{padding:2px 0;font-size:18px}
 .exbtn{margin:-2px 0 10px;padding:9px;font-size:14px}
+
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 10px}
+.order-box{background:var(--bg2);border-radius:12px;padding:12px;margin:8px 0 12px;font-size:15px;line-height:1.55}
+.qr-wrap{text-align:center;margin:12px 0}.qr{width:220px;height:220px;border-radius:12px;background:#fff;padding:8px}
+.net-badge{display:inline-block;margin-top:8px;padding:4px 10px;border-radius:8px;background:var(--bg2);font-size:13px}
+#copyNote{min-height:1.2em;color:#3d9a5f;font-weight:600}
