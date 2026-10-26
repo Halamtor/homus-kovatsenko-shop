@@ -66,12 +66,12 @@ function descOf(e){
   if(e.posts&&e.posts.length){
     const ids=e.posts.map(p=>(p.post||'').match(WALL_RE)).filter(Boolean).map(m=>m[1]);
     if(ids.length){
-      const wall=`https?://(?:m\.)?vk\.com/(?:vargan64\?w=)?wall-73004917_(?:${ids.join('|')})(?!\d)`;
+      const wall=`https?://(?:m\\.)?vk\\.com/(?:vargan64\\?w=)?wall-73004917_(?:${ids.join('|')})(?!\\d)`;
       // подписи «тут/здесь» + свой же пост = дубль кнопки «Послушать звучание»
-      t=t.replace(new RegExp(`Возможные настройки(?: с примерами звучания)?(?:\s+по ссылке|\s+тут)?\s*:?\s*${wall}`,'gi'),'Возможные настройки — в кнопке «Послушать звучание» выше');
-      t=t.replace(new RegExp(`(?:Подробный обзор|Обзоры|Видео с демонстрацией звучания|Примеры звучания|Примеры звука)(?:\s+тут|\s+здесь)?\s*:?\s*${wall}`,'gi'),'');
-      t=t.replace(new RegExp(`(?:по ссылке)\s*:?\s*${wall}`,'gi'),'');
-      t=t.replace(new RegExp(`\[[^\]]+\]\(${wall}\)`,'g'),'');
+      t=t.replace(new RegExp(`Возможные настройки(?: с примерами звучания)?(?:\\s+по ссылке|\\s+тут)?\\s*:?\\s*${wall}`,'gi'),'Возможные настройки — в кнопке «Послушать звучание» выше');
+      t=t.replace(new RegExp(`(?:Подробный обзор|Обзоры|Видео с демонстрацией звучания|Примеры звучания|Примеры звука)(?:\\s+тут|\\s+здесь)?\\s*:?\\s*${wall}`,'gi'),'');
+      t=t.replace(new RegExp(`(?:по ссылке)\\s*:?\\s*${wall}`,'gi'),'');
+      t=t.replace(new RegExp(`\\[[^\\]]+\\]\\(${wall}\\)`,'g'),'');
       t=t.replace(new RegExp(wall,'g'),'');
     }
   }
@@ -87,7 +87,7 @@ function descOf(e){
     albIds.forEach(aid=>{
       const a=typeof albById==='function'?albById(aid):null; if(!a) return;
       const m=(a.vk||'').match(/album-73004917_\d+/);
-      if(m) t=t.replace(new RegExp('https?://(?:m\.)?vk\.(?:com|ru)/'+m[0],'gi'),'');
+      if(m) t=t.replace(new RegExp('https?://(?:m\\.)?vk\\.(?:com|ru)/'+m[0],'gi'),'');
       t=t.replace(/по ссылке вы можете увидеть примеры[^\n]*/gi,'');
     });
     if(albIds.length) t=t.replace(/Примеры гравировок и выбрать одну из них\.\.\./gi,'').replace(/примеры гравировок и выбрать одну из них\.\.\./gi,'');
